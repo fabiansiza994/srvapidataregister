@@ -26,4 +26,9 @@ public class Usuario {
     @JoinColumn(name = "rol_id", nullable = false)
     private Rol rol;
 
+    @Column(name = "intentos_fallidos")
+    private int intentosFallidos = 0;
+
+    @Column(name = "bloqueado")
+    private boolean bloqueado = false;
 }

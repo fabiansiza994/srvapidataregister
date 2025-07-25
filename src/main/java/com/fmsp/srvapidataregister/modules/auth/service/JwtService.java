@@ -35,6 +35,10 @@ public class JwtService {
         claims.put("role", usuario.getRol().getNombre());
         claims.put("empresa", usuario.getGrupo().getEmpresa().getNombre());
 
+        claims.put("userId", usuario.getId());
+        claims.put("empresaId", usuario.getGrupo().getEmpresa().getId());
+        claims.put("grupoId", usuario.getGrupo().getId());
+
         return Jwts.builder()
                 .setClaims(claims)
                 .setSubject(usuario.getUsername())
