@@ -42,7 +42,7 @@ public class SecurityConfig {
         return http
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/**").permitAll()
+                        .requestMatchers("/auth/**", "/user/register").permitAll()
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -61,8 +61,8 @@ public class SecurityConfig {
 
     @Bean
     public UserDetailsService miUserDetailsService() {
-        return username -> usuarioRepository.findByUsername(username)
-                .map(user -> new User(user.getUsername(), user.getPassword(),
+        return username -> usuarioRepository.findByUsuario(username)
+                .map(user -> new User(user.getUsuario(), user.getPassword(),
                         List.of(new SimpleGrantedAuthority("ROLE_" + user.getRol().getNombre()))))
                 .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado"));
     }

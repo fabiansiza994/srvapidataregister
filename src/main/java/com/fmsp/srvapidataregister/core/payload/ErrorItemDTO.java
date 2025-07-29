@@ -8,7 +8,6 @@ import lombok.Setter;
 @Setter @Getter
 @AllArgsConstructor @NoArgsConstructor
 public class ErrorItemDTO {
-    private String idTx;
     private String codError;
     private String descError;
     private String msgError;

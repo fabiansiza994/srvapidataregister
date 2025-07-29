@@ -28,7 +28,7 @@ public class JwtService {
     }
 
     public String generateToken(UserDetails userDetails) {
-        Usuario usuario = usuarioRepository.findByUsername(userDetails.getUsername())
+        Usuario usuario = usuarioRepository.findByUsuario(userDetails.getUsername())
                 .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado"));
 
         Map<String, Object> claims = new HashMap<>();
@@ -41,7 +41,7 @@ public class JwtService {
 
         return Jwts.builder()
                 .setClaims(claims)
-                .setSubject(usuario.getUsername())
+                .setSubject(usuario.getUsuario())
                 .setIssuedAt(new Date())
                 .setExpiration(Date.from(Instant.now().plus(loadDataProperties.getExpirationMinutes(), ChronoUnit.MINUTES)))
                 .signWith(Keys.hmacShaKeyFor(loadDataProperties.getSecret().getBytes()), SignatureAlgorithm.HS256)

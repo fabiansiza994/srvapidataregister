@@ -15,8 +15,11 @@ public class Usuario {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String username;
+    private String nombre;
+    private String apellido;
+    private String usuario;
     private String password;
+    private String email;
 
     @ManyToOne
     @JoinColumn(name = "grupo_id", referencedColumnName = "id")

@@ -15,10 +15,10 @@ public class Grupo {
 
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "grupo_seq")
-    @SequenceGenerator(name = "grupo_seq", sequenceName = "grupo_sequence", allocationSize = 1)
+    @SequenceGenerator(name = "grupo_seq", sequenceName = "grupo_sequence", allocationSize = 1, initialValue = 1)
     private Long id;
 
-    @Column(unique = true, nullable = false)
+    @Column(nullable = false)
     private String nombre;
 
     @ManyToOne

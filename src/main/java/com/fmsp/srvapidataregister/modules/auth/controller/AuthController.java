@@ -29,4 +29,5 @@ public class AuthController {
         AuthResponse authResponse = authService.login(request);
         return ResponseHandler.successResponse(authResponse, uuid.toString());
     }
+
 }
