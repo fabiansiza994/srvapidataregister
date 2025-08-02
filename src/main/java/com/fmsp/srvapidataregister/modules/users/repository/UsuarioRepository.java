@@ -2,6 +2,8 @@ package com.fmsp.srvapidataregister.modules.users.repository;
 
 import com.fmsp.srvapidataregister.modules.users.entity.Usuario;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
@@ -10,4 +12,6 @@ import java.util.Optional;
 public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
     Optional<Usuario> findByUsuario(String usuario);
     boolean existsByEmail(String email);
+    @Query("SELECT u FROM Usuario u LEFT JOIN FETCH u.grupo LEFT JOIN FETCH u.rol WHERE u.usuario = :username")
+    Optional<Usuario> findByUsuarioWithRelations(@Param("username") String username);
 }

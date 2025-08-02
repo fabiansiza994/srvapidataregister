@@ -5,7 +5,6 @@ import com.fmsp.srvapidataregister.modules.companies.dto.EmpresaDTO;
 import com.fmsp.srvapidataregister.modules.companies.service.IEmpresaService;
 import com.fmsp.srvapidataregister.modules.groups.dto.GrupoDTO;
 import com.fmsp.srvapidataregister.modules.groups.service.IGrupoService;
-import com.fmsp.srvapidataregister.modules.roles.dto.RolDTO;
 import com.fmsp.srvapidataregister.modules.roles.service.IRolService;
 import com.fmsp.srvapidataregister.modules.users.dto.RegistroDTO;
 import com.fmsp.srvapidataregister.modules.users.dto.UsuarioDTO;
@@ -41,8 +40,8 @@ public class UsuarioService implements IUsuarioService {
 
     @Override
     public Optional<UsuarioDTO> getUsuarioByUsername(String username) {
-        Optional<Usuario> user = usuarioRepository.findByUsuario(username);
-        return Optional.ofNullable(modelMapper.map(user.get(), UsuarioDTO.class));
+        Optional<Usuario> user = usuarioRepository.findByUsuarioWithRelations(username);
+        return user.map(u -> modelMapper.map(u, UsuarioDTO.class));
     }
 
     @Override

@@ -1,5 +1,6 @@
 package com.fmsp.srvapidataregister;
 
+import org.hibernate.collection.spi.PersistentCollection;
 import org.modelmapper.Conditions;
 import org.modelmapper.ModelMapper;
 import org.springframework.boot.SpringApplication;
@@ -18,6 +19,11 @@ public class DataRegisterApplication {
         var modelMapper = new ModelMapper();
         modelMapper.getConfiguration().setPropertyCondition(Conditions.isNotNull());
         modelMapper.getConfiguration().setAmbiguityIgnored(true);
+        modelMapper.getConfiguration()
+                .setPropertyCondition(context ->
+                        !(context.getSource() instanceof PersistentCollection) ||
+                                ((PersistentCollection) context.getSource()).wasInitialized());
+
         return modelMapper;
     }
 
