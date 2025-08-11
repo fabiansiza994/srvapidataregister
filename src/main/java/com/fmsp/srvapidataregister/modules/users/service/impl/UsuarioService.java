@@ -5,7 +5,9 @@ import com.fmsp.srvapidataregister.modules.companies.dto.EmpresaDTO;
 import com.fmsp.srvapidataregister.modules.companies.service.IEmpresaService;
 import com.fmsp.srvapidataregister.modules.groups.dto.GrupoDTO;
 import com.fmsp.srvapidataregister.modules.groups.service.IGrupoService;
+import com.fmsp.srvapidataregister.modules.pais.service.IPaisService;
 import com.fmsp.srvapidataregister.modules.roles.service.IRolService;
+import com.fmsp.srvapidataregister.modules.sector.service.ISectorService;
 import com.fmsp.srvapidataregister.modules.users.dto.RegistroDTO;
 import com.fmsp.srvapidataregister.modules.users.dto.UsuarioDTO;
 import com.fmsp.srvapidataregister.modules.users.entity.Usuario;
@@ -28,14 +30,20 @@ public class UsuarioService implements IUsuarioService {
     private final IRolService rolService;
     private final IEmpresaService empresaService;
     private final IGrupoService grupoService;
+    private final ISectorService sectorService;
+    private final IPaisService paisService;
 
-    public UsuarioService(UsuarioRepository usuarioRepository, ModelMapper modelMapper, PasswordEncoder passwordEncoder, IRolService rolService, IEmpresaService empresaService, IGrupoService grupoService) {
+    public UsuarioService(UsuarioRepository usuarioRepository, ModelMapper modelMapper, PasswordEncoder passwordEncoder,
+                          IRolService rolService, IEmpresaService empresaService, IGrupoService grupoService,
+                          ISectorService sectorService, IPaisService paisService) {
         this.usuarioRepository = usuarioRepository;
         this.modelMapper = modelMapper;
         this.passwordEncoder = passwordEncoder;
         this.rolService = rolService;
         this.empresaService = empresaService;
         this.grupoService = grupoService;
+        this.sectorService = sectorService;
+        this.paisService = paisService;
     }
 
     @Override
@@ -57,7 +65,19 @@ public class UsuarioService implements IUsuarioService {
             throw new InternalServerException(uuid, "E001", "El usuario ya existe.");
         }
 
+        var sector = sectorService.findSectorById(registroDTO.getEmpresa().getSector().getId());
+        if(sector == null){
+            throw new InternalServerException(uuid, "E001", "El sector no existe.");
+        }
+
+        var pais = paisService.findById(registroDTO.getEmpresa().getPais().getId());
+        if(pais == null){
+            throw new InternalServerException(uuid, "E001", "El pais no existe.");
+        }
+
         EmpresaDTO empresaDTO = modelMapper.map(registroDTO.getEmpresa(), EmpresaDTO.class);
+        empresaDTO.setPais(pais);
+        empresaDTO.setSector(sector);
         empresaDTO.setEstado("ACTIVO");
         EmpresaDTO empresaGuardada = empresaService.save(empresaDTO);
 
@@ -76,9 +96,7 @@ public class UsuarioService implements IUsuarioService {
 
         var mapper = modelMapper.map(usuarioDTO, Usuario.class);
         usuarioRepository.save(mapper);
-
         registroDTO.setRol(rol);
-
         return modelMapper.map(registroDTO, UsuarioDTO.class);
     }
 

@@ -1,6 +1,8 @@
 package com.fmsp.srvapidataregister.modules.companies.entity;
 
 import com.fmsp.srvapidataregister.modules.groups.entity.Grupo;
+import com.fmsp.srvapidataregister.modules.pais.entity.Pais;
+import com.fmsp.srvapidataregister.modules.sector.entity.Sector;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -27,4 +29,11 @@ public class Empresa {
     @OneToMany(mappedBy = "empresa")
     private List<Grupo> grupos;
 
+    @ManyToOne
+    @JoinColumn(name = "pais_id", nullable = false)
+    private Pais pais;
+
+    @ManyToOne
+    @JoinColumn(name = "sector_id", nullable = false)
+    private Sector sector;
 }
