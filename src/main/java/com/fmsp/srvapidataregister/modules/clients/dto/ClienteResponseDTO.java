@@ -1,16 +1,15 @@
 package com.fmsp.srvapidataregister.modules.clients.dto;
 
-import com.fmsp.srvapidataregister.modules.companies.dto.EmpresaDTO;
 import com.fmsp.srvapidataregister.modules.paciente.dto.PacienteDTO;
-import com.fmsp.srvapidataregister.modules.users.dto.UsuarioDTO;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.util.List;
 
-@Getter @Setter
-public class ClienteDTO {
+@Getter
+@Setter
+public class ClienteResponseDTO {
     private Long id;
     @NotBlank(message = "el nombre es requerido")
     private String nombre;
@@ -21,8 +20,6 @@ public class ClienteDTO {
     @NotBlank(message = "la direccion es requerida")
     private String direccion;
     private String telefono;
-    private EmpresaDTO empresa;
-    private UsuarioDTO usuario;
     private String estado = "ACTIVO";
     private List<PacienteDTO> pacientes;
 }

@@ -47,6 +47,12 @@ public class UsuarioService implements IUsuarioService {
     }
 
     @Override
+    public Optional<UsuarioDTO> getUsuarioById(Long id) {
+        Optional<Usuario> usuario = usuarioRepository.findById(id);
+        return usuario.map(u -> modelMapper.map(u, UsuarioDTO.class));
+    }
+
+    @Override
     public Optional<UsuarioDTO> getUsuarioByUsername(String username) {
         Optional<Usuario> user = usuarioRepository.findByUsuarioWithRelations(username);
         return user.map(u -> modelMapper.map(u, UsuarioDTO.class));
@@ -66,12 +72,12 @@ public class UsuarioService implements IUsuarioService {
         }
 
         var sector = sectorService.findSectorById(registroDTO.getEmpresa().getSector().getId());
-        if(sector == null){
+        if (sector == null) {
             throw new InternalServerException(uuid, "E001", "El sector no existe.");
         }
 
         var pais = paisService.findById(registroDTO.getEmpresa().getPais().getId());
-        if(pais == null){
+        if (pais == null) {
             throw new InternalServerException(uuid, "E001", "El pais no existe.");
         }
 
