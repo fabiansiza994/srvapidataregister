@@ -5,14 +5,10 @@ import com.fmsp.srvapidataregister.core.payload.ErrorItemDTO;
 import com.fmsp.srvapidataregister.core.payload.ResponseHandler;
 import com.fmsp.srvapidataregister.modules.clients.dto.ClienteDTO;
 import com.fmsp.srvapidataregister.modules.clients.service.IClienteService;
-import com.fmsp.srvapidataregister.modules.paciente.dto.PacienteDTO;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.UUID;
@@ -29,7 +25,7 @@ public class ClientController {
     }
 
     @PostMapping("/create")
-    public ResponseEntity<ApiResponse<Object>> login(@RequestBody @Valid ClienteDTO clienteDTO, BindingResult result) {
+    public ResponseEntity<ApiResponse<Object>> create(@RequestBody @Valid ClienteDTO clienteDTO, BindingResult result) {
         String uuid = UUID.randomUUID().toString();
         if (result.hasErrors()) {
             List<ErrorItemDTO> errores = result.getFieldErrors().stream()
@@ -42,6 +38,13 @@ public class ClientController {
             return ResponseHandler.badRequestResponse(errores, uuid);
         }
         var client = clienteService.createClient(clienteDTO, uuid);
+        return ResponseHandler.successResponse(client, uuid);
+    }
+
+    @GetMapping("/list")
+    public ResponseEntity<ApiResponse<Object>> list() {
+        String uuid = UUID.randomUUID().toString();
+        var client = clienteService.listarClientes();
         return ResponseHandler.successResponse(client, uuid);
     }
 }

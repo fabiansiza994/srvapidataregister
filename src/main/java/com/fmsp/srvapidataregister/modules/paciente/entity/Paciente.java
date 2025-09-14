@@ -5,7 +5,9 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
-@Entity @Setter @Getter
+@Entity
+@Setter
+@Getter
 public class Paciente {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -17,5 +19,8 @@ public class Paciente {
     private String telefono;
     private String email;
     private String direccion;
+    @ManyToOne
+    @JoinColumn(name = "cliente_id")
+    private Cliente cliente;
     private String estado = "ACTIVO";
 }

@@ -24,4 +24,11 @@ public class PacienteService implements IPacienteService {
         paciente = pacienteRepository.save(paciente);
         return modelMapper.map(paciente, PacienteDTO.class);
     }
+
+    @Override
+    public PacienteDTO listPatient(Long clientId) {
+        var paciente = pacienteRepository.findByCliente_id(clientId);
+        paciente = modelMapper.map(paciente, Paciente.class);
+        return modelMapper.map(paciente, PacienteDTO.class);
+    }
 }

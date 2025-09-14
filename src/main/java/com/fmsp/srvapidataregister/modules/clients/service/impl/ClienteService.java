@@ -1,7 +1,9 @@
 package com.fmsp.srvapidataregister.modules.clients.service.impl;
 
 import com.fmsp.srvapidataregister.core.exceptions.CustomServiceException;
+import com.fmsp.srvapidataregister.modules.auth.service.PermisoService;
 import com.fmsp.srvapidataregister.modules.clients.dto.ClienteDTO;
+import com.fmsp.srvapidataregister.modules.clients.dto.ClientePlanoDTO;
 import com.fmsp.srvapidataregister.modules.clients.dto.ClienteResponseDTO;
 import com.fmsp.srvapidataregister.modules.clients.entity.Cliente;
 import com.fmsp.srvapidataregister.modules.clients.repository.ClienteRepository;
@@ -10,6 +12,8 @@ import com.fmsp.srvapidataregister.modules.paciente.dto.PacienteDTO;
 import com.fmsp.srvapidataregister.modules.paciente.service.IPacienteService;
 import com.fmsp.srvapidataregister.modules.users.service.IUsuarioService;
 import org.modelmapper.ModelMapper;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -23,22 +27,24 @@ public class ClienteService implements IClienteService {
 
     private final IUsuarioService usuarioService;
     private final IPacienteService pacienteService;
+    private final PermisoService permisoService;
 
-    public ClienteService(ClienteRepository clienteRepository, ModelMapper modelMapper, IUsuarioService usuarioService, IPacienteService pacienteService) {
+    public ClienteService(ClienteRepository clienteRepository, ModelMapper modelMapper, IUsuarioService usuarioService, IPacienteService pacienteService, PermisoService permisoService) {
         this.clienteRepository = clienteRepository;
         this.modelMapper = modelMapper;
         this.usuarioService = usuarioService;
         this.pacienteService = pacienteService;
+        this.permisoService = permisoService;
     }
 
     @Override
     public ClienteResponseDTO createClient(ClienteDTO clienteDTO, String uuid) {
         var usuario = usuarioService.getUsuarioById(clienteDTO.getUsuario().getId());
-        if(usuario.isEmpty()){
+        if (usuario.isEmpty()) {
             throw new CustomServiceException(uuid, "E003", "Usuario no encontrado");
         }
-        if(usuario.get().getGrupo().getEmpresa().getSector().getNombre().equalsIgnoreCase("SALUD")){
-            if(!clienteDTO.getPacientes().isEmpty()){
+        if (usuario.get().getGrupo().getEmpresa().getSector().getNombre().equalsIgnoreCase("SALUD")) {
+            if (!clienteDTO.getPacientes().isEmpty()) {
                 var pacienteList = new ArrayList<PacienteDTO>();
                 createPatientList(clienteDTO, pacienteList);
                 guardarPaciente(pacienteList);
@@ -69,8 +75,26 @@ public class ClienteService implements IClienteService {
         pacienteList.forEach(pacienteService::save);
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN','USER')")
+    public List<ClientePlanoDTO> listarClientes() {
+        if (permisoService.hasRole("ADMIN")) {
+            Long empresaId = permisoService.empresaIdActualOrNull();
+            if (empresaId == null) throw new AccessDeniedException("Empresa no asociada");
+            return clienteRepository.findAllByEmpresa_Id(empresaId)
+                    .stream().map(c -> modelMapper.map(c, ClientePlanoDTO.class)).toList();
+        }
 
-    /*@PreAuthorize("hasRole('ADMIN_EMPRESA') || (hasRole('USER_NORMAL') && @permisoService.mismoGrupo(#clienteId))")
+        if (permisoService.hasRole("USER")) {
+            Long grupoId = permisoService.grupoIdActualOrNull();
+            if (grupoId == null) throw new AccessDeniedException("Grupo no asociado");
+            return clienteRepository.findAllByUsuario_Grupo_Id(grupoId)
+                    .stream().map(c -> modelMapper.map(c, ClientePlanoDTO.class)).toList();
+        }
+
+        throw new AccessDeniedException("Rol no permitido");
+    }
+
+    /*@PreAuthorize("hasRole('ADMIN') || (hasRole('USER') && @permisoService.mismoGrupo(#clienteId))")
     public ClienteDTO obtenerCliente(Long clienteId) {
         // Lógica para obtener cliente
         return null;

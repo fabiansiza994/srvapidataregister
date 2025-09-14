@@ -2,6 +2,7 @@ package com.fmsp.srvapidataregister.modules.jobs.entity;
 
 import com.fmsp.srvapidataregister.modules.clients.entity.Cliente;
 import com.fmsp.srvapidataregister.modules.methodPayment.entity.FormaPago;
+import com.fmsp.srvapidataregister.modules.paciente.entity.Paciente;
 import com.fmsp.srvapidataregister.modules.users.entity.Usuario;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -43,6 +44,10 @@ public class Trabajo {
     @ManyToOne
     @JoinColumn(name = "CLIENTE_ID", nullable = false)
     private Cliente cliente;
+
+    @ManyToOne
+    @JoinColumn(name = "PACIENTE_ID", nullable = false)
+    private Paciente paciente;
 
     @ManyToOne
     @JoinColumn(name = "FORMA_PAGO_ID", nullable = false)
