@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class ClienteService implements IClienteService {
@@ -92,6 +93,12 @@ public class ClienteService implements IClienteService {
         }
 
         throw new AccessDeniedException("Rol no permitido");
+    }
+
+    @Override
+    public Optional<ClientePlanoDTO> findById(Long id) {
+        var cliente = clienteRepository.findById(id);
+        return cliente.map(c -> modelMapper.map(c, ClientePlanoDTO.class));
     }
 
     /*@PreAuthorize("hasRole('ADMIN') || (hasRole('USER') && @permisoService.mismoGrupo(#clienteId))")

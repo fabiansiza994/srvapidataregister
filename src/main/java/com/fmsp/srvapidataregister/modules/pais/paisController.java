@@ -5,14 +5,13 @@ import com.fmsp.srvapidataregister.core.payload.ResponseHandler;
 import com.fmsp.srvapidataregister.modules.pais.service.IPaisService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
 
 @RestController
-@RequestMapping("pais")
+@RequestMapping("country")
 public class paisController {
 
     private final IPaisService paisService;

@@ -45,9 +45,8 @@ public class Trabajo {
     @JoinColumn(name = "CLIENTE_ID", nullable = false)
     private Cliente cliente;
 
-    @ManyToOne
-    @JoinColumn(name = "PACIENTE_ID", nullable = false)
-    private Paciente paciente;
+    @Column(name = "PACIENTE_ID")
+    private Long paciente;
 
     @ManyToOne
     @JoinColumn(name = "FORMA_PAGO_ID", nullable = false)

@@ -1,6 +1,5 @@
 package com.fmsp.srvapidataregister.modules.paciente.entity;
 
-import com.fmsp.srvapidataregister.modules.clients.entity.Cliente;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -19,8 +18,7 @@ public class Paciente {
     private String telefono;
     private String email;
     private String direccion;
-    @ManyToOne
-    @JoinColumn(name = "cliente_id")
-    private Cliente cliente;
+    @Column(name = "cliente_id")
+    private Long cliente;
     private String estado = "ACTIVO";
 }
