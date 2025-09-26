@@ -3,14 +3,16 @@ package com.fmsp.srvapidataregister.modules.paciente.controller;
 import com.fmsp.srvapidataregister.core.payload.ApiResponse;
 import com.fmsp.srvapidataregister.core.payload.ErrorItemDTO;
 import com.fmsp.srvapidataregister.core.payload.ResponseHandler;
-import com.fmsp.srvapidataregister.modules.clients.dto.ClienteDTO;
 import com.fmsp.srvapidataregister.modules.paciente.dto.PacienteDTO;
 import com.fmsp.srvapidataregister.modules.paciente.service.IPacienteService;
+import com.fmsp.srvapidataregister.modules.paciente.service.impl.PacienteService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 
+import java.nio.file.AccessDeniedException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -47,5 +49,68 @@ public class PacienteController {
         }
         var client = pacienteService.save(pacienteDTO);
         return ResponseHandler.successResponse(client, uuid);
+    }
+
+    // Recomendado: listar por clientId con paginación
+    @GetMapping("/list-by-client")
+    public ResponseEntity<ApiResponse<Object>> listByClient(
+            @RequestParam Long clientId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "id") String sortBy,
+            @RequestParam(defaultValue = "DESC") String direction
+    ) {
+        String uuid = UUID.randomUUID().toString();
+        var pageResult = ((PacienteService) pacienteService)
+                .listarPacientesPorCliente(clientId, page, size, sortBy, direction);
+
+        var payload = new HashMap<>();
+        payload.put("items", pageResult.getContent());
+        payload.put("page", pageResult.getNumber());
+        payload.put("size", pageResult.getSize());
+        payload.put("totalElements", pageResult.getTotalElements());
+        payload.put("totalPages", pageResult.getTotalPages());
+        payload.put("last", pageResult.isLast());
+        payload.put("sort", pageResult.getSort().toString());
+        payload.put("clientId", clientId);
+
+        return ResponseHandler.successResponse(payload, uuid);
+    }
+
+    @GetMapping("/search")
+    public ResponseEntity<ApiResponse<Object>> search(
+            @RequestParam String q,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "id") String sortBy,
+            @RequestParam(defaultValue = "DESC") String direction
+    ) throws AccessDeniedException {
+        String uuid = UUID.randomUUID().toString();
+        var pageResult = ((PacienteService) pacienteService)
+                .searchPacientes(q, page, size, sortBy, direction);
+
+        var payload = new HashMap<String, Object>();
+        payload.put("items", pageResult.getContent());
+        payload.put("page", pageResult.getNumber());
+        payload.put("size", pageResult.getSize());
+        payload.put("totalElements", pageResult.getTotalElements());
+        payload.put("totalPages", pageResult.getTotalPages());
+        payload.put("last", pageResult.isLast());
+        payload.put("sort", pageResult.getSort().toString());
+        payload.put("query", q);
+
+        return ResponseHandler.successResponse(payload, uuid);
+    }
+
+    @DeleteMapping("/delete/{id}")
+    public ResponseEntity<ApiResponse<Object>> delete(@PathVariable("id") Long id) throws AccessDeniedException {
+        String uuid = UUID.randomUUID().toString();
+        ((PacienteService) pacienteService).deletePaciente(id, uuid);
+
+        var payload = new HashMap<String, Object>();
+        payload.put("deletedId", id);
+        payload.put("message", "Paciente eliminado correctamente");
+
+        return ResponseHandler.successResponse(payload, uuid);
     }
 }

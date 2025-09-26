@@ -7,6 +7,8 @@ import com.fmsp.srvapidataregister.modules.clients.dto.ClientePlanoDTO;
 import com.fmsp.srvapidataregister.modules.clients.service.IClienteService;
 import com.fmsp.srvapidataregister.modules.jobs.dto.TrabajoCreateDTO;
 import com.fmsp.srvapidataregister.modules.jobs.dto.TrabajoDTO;
+import com.fmsp.srvapidataregister.modules.jobs.dto.TrabajoDetailDTO;
+import com.fmsp.srvapidataregister.modules.jobs.dto.TrabajoListDTO;
 import com.fmsp.srvapidataregister.modules.jobs.entity.Trabajo;
 import com.fmsp.srvapidataregister.modules.jobs.repository.TrabajoRepository;
 import com.fmsp.srvapidataregister.modules.jobs.service.IJobService;
@@ -18,6 +20,10 @@ import com.fmsp.srvapidataregister.modules.users.dto.UsuarioDTO;
 import com.fmsp.srvapidataregister.modules.users.service.IUsuarioService;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -32,6 +38,7 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.util.Locale;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -96,7 +103,151 @@ public class JobServiceImpl implements IJobService {
         return modelMapper.map(saved, TrabajoDTO.class);
     }
 
-    /** Sube archivo. Si luce como imagen -> comprime a JPEG 800px, sino sube tal cual. */
+    @Override
+    public long countByCliente_Id(Long clienteId) {
+        return trabajoRepository.countByCliente_Id(clienteId);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<TrabajoListDTO> listarTrabajos(int page, int size, String sortBy, String direction) {
+
+        String idTx = UUID.randomUUID().toString();
+
+        Sort sort = "DESC".equalsIgnoreCase(direction)
+                ? Sort.by(sortBy).descending()
+                : Sort.by(sortBy).ascending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        if (permisoService.hasRole("ADMIN")) {
+            Long empresaId = permisoService.empresaIdActualOrNull();
+            if (empresaId == null) throw new CustomServiceException(idTx, "E005", "Empresa no asociada");
+            return trabajoRepository.findAllByEmpresa(empresaId, pageable)
+                    .map(t -> mapTrabajoToListDTO(t));
+        }
+
+        if (permisoService.hasRole("USER")) {
+            Long grupoId = permisoService.grupoIdActualOrNull();
+            if (grupoId == null) throw new CustomServiceException(idTx, "E005", "Grupo no asociado");
+            return trabajoRepository.findAllByGrupo(grupoId, pageable)
+                    .map(t -> mapTrabajoToListDTO(t));
+        }
+
+        throw new CustomServiceException(idTx, "E005", "Rol no permitido");
+    }
+
+    private TrabajoListDTO mapTrabajoToListDTO(Trabajo t) {
+        TrabajoListDTO dto = modelMapper.map(t, TrabajoListDTO.class);
+        if (t.getPacienteObj() != null) {
+            dto.setPaciente(modelMapper.map(t.getPacienteObj(),
+                    com.fmsp.srvapidataregister.modules.paciente.dto.PacienteDTO.class));
+        } else {
+            dto.setPaciente(null);
+        }
+        return dto;
+    }
+
+    @Transactional(readOnly = true)
+    public Page<TrabajoListDTO> searchTrabajos(String q, int page, int size, String sortBy, String direction) {
+
+        String idTx = UUID.randomUUID().toString();
+
+        if (q == null || q.trim().isEmpty()) {
+            return listarTrabajos(page, size, sortBy, direction);
+        }
+        Sort sort = "DESC".equalsIgnoreCase(direction)
+                ? Sort.by(sortBy).descending()
+                : Sort.by(sortBy).ascending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+        String query = q.trim();
+
+        if (permisoService.hasRole("ADMIN")) {
+            Long empresaId = permisoService.empresaIdActualOrNull();
+            if (empresaId == null) throw new CustomServiceException(idTx, "E005", "Empresa no asociada");
+            return trabajoRepository.searchByEmpresa(empresaId, query, pageable)
+                    .map(t -> mapTrabajoToListDTO(t));
+        }
+
+        if (permisoService.hasRole("USER")) {
+            Long grupoId = permisoService.grupoIdActualOrNull();
+            if (grupoId == null) throw new CustomServiceException(idTx, "E005", "Grupo no asociado");
+            return trabajoRepository.searchByGrupo(grupoId, query, pageable)
+                    .map(t -> mapTrabajoToListDTO(t));
+        }
+
+        throw new CustomServiceException(idTx, "E005", "Rol no permitido");
+    }
+
+    @Transactional(readOnly = true)
+    public TrabajoDetailDTO getTrabajoDetail(Long trabajoId, String idTx) {
+        var opt = trabajoRepository.findById(trabajoId);
+        if (opt.isEmpty()) throw new CustomServiceException(idTx, "E404", "Trabajo no encontrado");
+        Trabajo t = opt.get();
+
+        // Alcance por rol
+        if (permisoService.hasRole("ADMIN")) {
+            Long empresaId = permisoService.empresaIdActualOrNull();
+            Long empresaTrabajo = (t.getCliente() != null && t.getCliente().getEmpresa() != null)
+                    ? t.getCliente().getEmpresa().getId() : null;
+            if (empresaId == null || empresaTrabajo == null || !empresaId.equals(empresaTrabajo)) {
+                throw new CustomServiceException(idTx, "E005", "El trabajo no pertenece a tu empresa");
+            }
+        } else if (permisoService.hasRole("USER")) {
+            Long grupoId = permisoService.grupoIdActualOrNull();
+            Long grupoTrabajo = (t.getUsuario() != null && t.getUsuario().getGrupo() != null)
+                    ? t.getUsuario().getGrupo().getId() : null;
+            if (grupoId == null || !grupoId.equals(grupoTrabajo)) {
+                throw new CustomServiceException(idTx, "E005", "El trabajo no pertenece a tu grupo");
+            }
+        } else {
+            throw new CustomServiceException(idTx, "E005", "Rol no permitido");
+        }
+
+        TrabajoDetailDTO dto = modelMapper.map(t, TrabajoDetailDTO.class);
+
+        // Resolver paciente (en entidad es Long)
+        if (t.getPaciente() != null) {
+            PacienteDTO paciente = pacienteService.findById(t.getPaciente())
+                    .orElse(null);
+            dto.setPaciente(paciente);
+        }
+
+        return dto;
+    }
+
+    // ========= DELETE =========
+    @Transactional
+    public void deleteTrabajo(Long trabajoId, String idTx) {
+        var opt = trabajoRepository.findById(trabajoId);
+        if (opt.isEmpty()) throw new CustomServiceException(idTx, "E404", "Trabajo no encontrado");
+        Trabajo t = opt.get();
+
+        if (permisoService.hasRole("ADMIN")) {
+            Long empresaId = permisoService.empresaIdActualOrNull();
+            Long empresaTrabajo = (t.getCliente() != null && t.getCliente().getEmpresa() != null)
+                    ? t.getCliente().getEmpresa().getId() : null;
+            if (empresaId == null || empresaTrabajo == null || !empresaId.equals(empresaTrabajo)) {
+                throw new CustomServiceException(idTx, "E005", "El trabajo no pertenece a tu empresa");
+            }
+        } else if (permisoService.hasRole("USER")) {
+            Long grupoId = permisoService.grupoIdActualOrNull();
+            Long grupoTrabajo = (t.getUsuario() != null && t.getUsuario().getGrupo() != null)
+                    ? t.getUsuario().getGrupo().getId() : null;
+            if (grupoId == null || !grupoId.equals(grupoTrabajo)) {
+                throw new CustomServiceException(idTx, "E005", "El trabajo no pertenece a tu grupo");
+            }
+        } else {
+            throw new CustomServiceException(idTx, "E005", "Rol no permitido");
+        }
+
+        // (Opcional) eliminar archivos S3 asociados si quieres
+        // s3Service.deleteIfNotNull(t.getFoto1()); ...
+
+        trabajoRepository.deleteById(trabajoId);
+    }
+
+    /**
+     * Sube archivo. Si luce como imagen -> comprime a JPEG 800px, sino sube tal cual.
+     */
     private String uploadIfPresent(String keyPrefix, MultipartFile file) {
         try {
             if (file == null || file.isEmpty()) return null;
@@ -133,7 +284,9 @@ public class JobServiceImpl implements IJobService {
         return (ct == null || ct.isBlank()) ? "application/octet-stream" : ct.toLowerCase(Locale.ROOT);
     }
 
-    /** Heurística: contentType, extensión y firmas JPG/PNG/WEBP + ImageIO.read */
+    /**
+     * Heurística: contentType, extensión y firmas JPG/PNG/WEBP + ImageIO.read
+     */
     private static boolean isProbablyImage(String contentType, String originalName, byte[] bytes) {
         if (contentType.startsWith("image/")) return true;
         if (hasImageExtension(originalName)) return true;
@@ -190,7 +343,9 @@ public class JobServiceImpl implements IJobService {
         }
     }
 
-    /** Comprime/redimensiona a JPEG manteniendo proporción */
+    /**
+     * Comprime/redimensiona a JPEG manteniendo proporción
+     */
     private static byte[] compressToJpeg(BufferedImage src, int maxW, int maxH, float quality) throws Exception {
         int w = src.getWidth(), h = src.getHeight();
         double scale = Math.min((double) maxW / w, (double) maxH / h);

@@ -11,6 +11,7 @@ import java.util.List;
 @Setter
 public class ClienteResponseDTO {
     private Long id;
+    private String identificacion;
     @NotBlank(message = "el nombre es requerido")
     private String nombre;
     @NotBlank(message = "el apellido es requerido")

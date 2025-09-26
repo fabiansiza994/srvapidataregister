@@ -3,7 +3,8 @@ package com.fmsp.srvapidataregister.modules.auth.service;
 import com.fmsp.srvapidataregister.modules.clients.repository.ClienteRepository;
 import com.fmsp.srvapidataregister.modules.users.dto.UsuarioDTO;
 import com.fmsp.srvapidataregister.modules.users.entity.Usuario;
-import com.fmsp.srvapidataregister.modules.users.service.IUsuarioService;
+import com.fmsp.srvapidataregister.modules.users.repository.UsuarioRepository;
+import org.modelmapper.ModelMapper;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,12 +15,14 @@ import java.util.Optional;
 @Transactional(readOnly = true)
 public class PermisoService {
 
-    private final IUsuarioService usuarioService;
+    private final UsuarioRepository usuarioRepository;
     private final ClienteRepository clienteRepository;
+    private final ModelMapper modelMapper;
 
-    public PermisoService(IUsuarioService usuarioService, ClienteRepository clienteRepository) {
-        this.usuarioService = usuarioService;
+    public PermisoService(UsuarioRepository usuarioRepository, ClienteRepository clienteRepository, ModelMapper modelMapper) {
+        this.usuarioRepository = usuarioRepository;
         this.clienteRepository = clienteRepository;
+        this.modelMapper = modelMapper;
     }
 
     /**
@@ -39,13 +42,14 @@ public class PermisoService {
         return grupoCliente.isPresent() && grupoCliente.get().equals(grupoUsuario);
     }
 
-    private Optional<UsuarioDTO> getUsuarioActual() {
+    public Optional<UsuarioDTO> getUsuarioActual() {
         var auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !auth.isAuthenticated()) return Optional.empty();
 
         // Aquí asumo que tu usuario se identifica por username en el Authentication
         String username = auth.getName();
-        return usuarioService.getUsuarioByUsername(username);
+        Optional<Usuario> user = usuarioRepository.findByUsuarioWithRelations(username);
+        return user.map(u -> modelMapper.map(u, UsuarioDTO.class));
     }
 
     public boolean hasRole(String role) {
@@ -75,6 +79,65 @@ public class PermisoService {
     public Optional<UsuarioDTO> usuarioActual() {
         var auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !auth.isAuthenticated()) return Optional.empty();
-        return usuarioService.getUsuarioByUsername(auth.getName());
+
+        Optional<Usuario> user = usuarioRepository.findByUsuarioWithRelations(auth.getName());
+        return user.map(u -> modelMapper.map(u, UsuarioDTO.class));
     }
+
+    // Opcional: si quieres devolver un objeto ligero
+    public static final class SectorInfo {
+        private final Long id;
+        private final String nombre;
+
+        public SectorInfo(Long id, String nombre) {
+            this.id = id;
+            this.nombre = nombre;
+        }
+        public Long getId() { return id; }
+        public String getNombre() { return nombre; }
+    }
+
+    /** Devuelve el ID del sector de la empresa del usuario autenticado, o null si no hay. */
+    public Long sectorIdActualOrNull() {
+        return usuarioActualEntity()
+                .map(u -> {
+                    var grupo = u.getGrupo();
+                    var empresa = (grupo != null) ? grupo.getEmpresa() : null;
+                    var sector = (empresa != null) ? empresa.getSector() : null;
+                    return (sector != null) ? sector.getId() : null;
+                })
+                .orElse(null);
+    }
+
+    /** Devuelve el nombre del sector de la empresa del usuario autenticado, o null si no hay. */
+    public String sectorNombreActualOrNull() {
+        return usuarioActualEntity()
+                .map(u -> {
+                    var grupo = u.getGrupo();
+                    var empresa = (grupo != null) ? grupo.getEmpresa() : null;
+                    var sector = (empresa != null) ? empresa.getSector() : null;
+                    return (sector != null) ? sector.getNombre() : null;
+                })
+                .orElse(null);
+    }
+
+    /** Devuelve un objeto compacto con id y nombre del sector (o null si no hay). */
+    public SectorInfo sectorActualOrNull() {
+        return usuarioActualEntity()
+                .map(u -> {
+                    var grupo = u.getGrupo();
+                    var empresa = (grupo != null) ? grupo.getEmpresa() : null;
+                    var sector = (empresa != null) ? empresa.getSector() : null;
+                    return (sector != null) ? new SectorInfo(sector.getId(), sector.getNombre()) : null;
+                })
+                .orElse(null);
+    }
+
+    /** Helper interno para obtener la entidad Usuario con sus relaciones. */
+    private Optional<Usuario> usuarioActualEntity() {
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) return Optional.empty();
+        return usuarioRepository.findByUsuarioWithRelations(auth.getName());
+    }
+
 }

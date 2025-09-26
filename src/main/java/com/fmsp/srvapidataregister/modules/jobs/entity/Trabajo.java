@@ -52,7 +52,13 @@ public class Trabajo {
     @JoinColumn(name = "FORMA_PAGO_ID", nullable = false)
     private FormaPago formaPago;
 
+    private String estado = "PENDIENTE"; //PAGO, PENDIENTE, CANCELADO
+
     @ManyToOne
     @JoinColumn(name = "USUARIO_ID", nullable = false)
     private Usuario usuario;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "PACIENTE_ID", insertable = false, updatable = false)
+    private Paciente pacienteObj;
 }

@@ -1,4 +1,4 @@
-package com.fmsp.srvapidataregister.modules.pais;
+package com.fmsp.srvapidataregister.modules.pais.paisController;
 
 import com.fmsp.srvapidataregister.core.payload.ApiResponse;
 import com.fmsp.srvapidataregister.core.payload.ResponseHandler;

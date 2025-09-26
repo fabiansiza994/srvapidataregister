@@ -29,4 +29,19 @@ public class EmpresaService implements IEmpresaService {
         empresaRepository.save(empresa);
         return modelMapper.map(empresa, EmpresaDTO.class);
     }
+
+    @Override
+    public EmpresaDTO findById(Long id) {
+        var empresa = empresaRepository.findById(id);
+        return modelMapper.map(empresa, EmpresaDTO.class);
+    }
+
+    @Override
+    public EmpresaDTO findByNombre(String nombre) {
+        var empresa = empresaRepository.findByNombre(nombre);
+        if(empresa == null) {
+            return null;
+        }
+        return modelMapper.map(empresa, EmpresaDTO.class);
+    }
 }

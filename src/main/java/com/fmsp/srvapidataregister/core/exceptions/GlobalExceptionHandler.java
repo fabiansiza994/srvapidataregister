@@ -62,6 +62,16 @@ public class GlobalExceptionHandler {
         return ResponseHandler.forbiddenResponse(Collections.singletonList(error), null);
     }
 
+    @ExceptionHandler(CustomAccesException.class)
+    public ResponseEntity<ApiResponse<String>> handleCustomAccessDenied(CustomAccesException e) {
+        ErrorItemDTO error = new ErrorItemDTO(
+                "FORBIDDEN",
+                "Acceso denegado",
+                e.getDescError()
+        );
+        return ResponseHandler.forbiddenResponse(Collections.singletonList(error), null);
+    }
+
     @ExceptionHandler(AuthorizationDeniedException.class)
     public ResponseEntity<ApiResponse<String>> handleAuthorizationDeniedException(AuthorizationDeniedException e) {
         ErrorItemDTO error = new ErrorItemDTO(

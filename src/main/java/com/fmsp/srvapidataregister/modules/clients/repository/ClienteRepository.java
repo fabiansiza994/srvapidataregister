@@ -13,6 +13,7 @@ import java.util.Optional;
 
 @Repository
 public interface ClienteRepository extends JpaRepository<Cliente, Long> {
+    boolean existsByIdentificacionAndEmpresa_IdAndIdNot(String identificacion, Long empresaId, Long excludeId);
     // ✔ Clientes del mismo grupo (vía usuario.grupo)
     List<Cliente> findAllByUsuario_Grupo_Id(Long grupoId);
 
@@ -29,4 +30,24 @@ public interface ClienteRepository extends JpaRepository<Cliente, Long> {
 
     @Query("select c.usuario.id from Cliente c where c.id = :clienteId")
     Optional<Long> findCreatedByUserId(@Param("clienteId") Long clienteId);
+
+    @Query("""
+      SELECT c FROM Cliente c
+      WHERE c.usuario.grupo.empresa.id = :empresaId
+        AND (
+          LOWER(c.nombre) LIKE LOWER(CONCAT('%', :q, '%'))
+          OR LOWER(c.identificacion) LIKE LOWER(CONCAT('%', :q, '%'))
+        )
+    """)
+    Page<Cliente> searchByEmpresa(Long empresaId, String q, Pageable pageable);
+
+    @Query("""
+      SELECT c FROM Cliente c
+      WHERE c.usuario.grupo.id = :grupoId
+        AND (
+          LOWER(c.nombre) LIKE LOWER(CONCAT('%', :q, '%'))
+          OR LOWER(c.identificacion) LIKE LOWER(CONCAT('%', :q, '%'))
+        )
+    """)
+    Page<Cliente> searchByGrupo(Long grupoId, String q, Pageable pageable);
 }

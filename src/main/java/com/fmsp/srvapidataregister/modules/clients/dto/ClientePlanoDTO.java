@@ -8,6 +8,8 @@ import lombok.Setter;
 @Setter
 public class ClientePlanoDTO {
     private Long id;
+    @NotBlank(message = "la identificacion es requerida")
+    private String identificacion;
     @NotBlank(message = "el nombre es requerido")
     private String nombre;
     @NotBlank(message = "el apellido es requerido")

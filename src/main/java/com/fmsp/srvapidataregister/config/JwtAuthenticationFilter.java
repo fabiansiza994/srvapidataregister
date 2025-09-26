@@ -27,50 +27,65 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        // Saltar filtro para login, registro y recursos públicos
+        return "OPTIONS".equalsIgnoreCase(request.getMethod())
+                || path.startsWith("/auth/")
+                || path.equals("/user/register")
+                || path.startsWith("/public/")
+                || path.startsWith("/actuator"); // si aplica
+    }
+
+    @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
-                                    FilterChain filterChain) throws ServletException, IOException {
-
-        // Permitir solicitudes OPTIONS para CORS preflight
-        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
-            filterChain.doFilter(request, response);
-            return;
-        }
+                                    FilterChain chain) throws ServletException, IOException {
 
         final String authHeader = request.getHeader("Authorization");
-        final String jwt;
-        final String username;
 
+        // 1) Si no hay Authorization o no es Bearer, dejar pasar sin autenticar
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            filterChain.doFilter(request, response);
-            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized");
+            chain.doFilter(request, response);
             return;
         }
 
         try {
-            jwt = authHeader.substring(7);
-            username = jwtService.extractUsername(jwt);
+            final String jwt = authHeader.substring(7);
+            final String username = jwtService.extractUsername(jwt);
 
+            // 2) Si ya hay Authentication en el contexto, solo continuar
             if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
 
                 if (!jwtService.isTokenValid(jwt, userDetails)) {
-                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token inválido o expirado");
+                    // Token inválido/expirado: responder 401 y cortar
+                    writeUnauthorizedJson(response, "Token inválido o expirado");
                     return;
                 }
 
-                UsernamePasswordAuthenticationToken authToken =
-                        new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-
+                var authToken = new UsernamePasswordAuthenticationToken(
+                        userDetails,
+                        null,
+                        userDetails.getAuthorities()
+                );
                 authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authToken);
             }
 
-            filterChain.doFilter(request, response);
-        }catch (Exception e) {
+            chain.doFilter(request, response);
+        } catch (Exception ex) {
             if (!response.isCommitted()) {
-                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token inválido o expirado");
+                writeUnauthorizedJson(response, "Token inválido o expirado");
             }
         }
+    }
+
+    private void writeUnauthorizedJson(HttpServletResponse res, String message) throws IOException {
+        res.resetBuffer(); // prevenir "already committed"
+        res.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        res.setContentType("application/json");
+        res.getWriter().write("{\"message\":\"" + message + "\"}");
+        res.flushBuffer();
     }
 }

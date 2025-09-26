@@ -11,7 +11,6 @@ public class Paciente {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
     private String nombre;
     private String apellido;
     private String documento; // DNI, cédula, etc.
@@ -19,6 +18,6 @@ public class Paciente {
     private String email;
     private String direccion;
     @Column(name = "cliente_id")
-    private Long cliente;
+    private Long clienteId;
     private String estado = "ACTIVO";
 }
