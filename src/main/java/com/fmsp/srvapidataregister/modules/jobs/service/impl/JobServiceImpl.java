@@ -1,20 +1,22 @@
 package com.fmsp.srvapidataregister.modules.jobs.service.impl;
 
+import com.fmsp.srvapidataregister.core.exceptions.CustomAccesException;
 import com.fmsp.srvapidataregister.core.exceptions.CustomServiceException;
 import com.fmsp.srvapidataregister.modules.S3.service.S3Service;
 import com.fmsp.srvapidataregister.modules.auth.service.PermisoService;
 import com.fmsp.srvapidataregister.modules.clients.dto.ClientePlanoDTO;
+import com.fmsp.srvapidataregister.modules.clients.entity.Cliente;
 import com.fmsp.srvapidataregister.modules.clients.service.IClienteService;
-import com.fmsp.srvapidataregister.modules.jobs.dto.TrabajoCreateDTO;
-import com.fmsp.srvapidataregister.modules.jobs.dto.TrabajoDTO;
-import com.fmsp.srvapidataregister.modules.jobs.dto.TrabajoDetailDTO;
-import com.fmsp.srvapidataregister.modules.jobs.dto.TrabajoListDTO;
+import com.fmsp.srvapidataregister.modules.jobs.dto.*;
 import com.fmsp.srvapidataregister.modules.jobs.entity.Trabajo;
 import com.fmsp.srvapidataregister.modules.jobs.repository.TrabajoRepository;
 import com.fmsp.srvapidataregister.modules.jobs.service.IJobService;
 import com.fmsp.srvapidataregister.modules.methodPayment.dto.FormaPagoDTO;
+import com.fmsp.srvapidataregister.modules.methodPayment.entity.FormaPago;
+import com.fmsp.srvapidataregister.modules.methodPayment.repository.MOPRepository;
 import com.fmsp.srvapidataregister.modules.methodPayment.service.IMOPService;
 import com.fmsp.srvapidataregister.modules.paciente.dto.PacienteDTO;
+import com.fmsp.srvapidataregister.modules.paciente.entity.Paciente;
 import com.fmsp.srvapidataregister.modules.paciente.service.IPacienteService;
 import com.fmsp.srvapidataregister.modules.users.dto.UsuarioDTO;
 import com.fmsp.srvapidataregister.modules.users.service.IUsuarioService;
@@ -33,11 +35,15 @@ import javax.imageio.ImageIO;
 import javax.imageio.ImageWriteParam;
 import javax.imageio.ImageWriter;
 import javax.imageio.stream.ImageOutputStream;
+import javax.imageio.stream.MemoryCacheImageOutputStream;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.math.BigDecimal;
+import java.util.Iterator;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -45,6 +51,7 @@ import java.util.UUID;
 public class JobServiceImpl implements IJobService {
 
     private final TrabajoRepository trabajoRepository;
+    private final MOPRepository formaPagoRepository;
     private final PermisoService permisoService;
     private final IUsuarioService usuarioService;
     private final IClienteService clienteService;
@@ -69,8 +76,8 @@ public class JobServiceImpl implements IJobService {
         // 2) Entidades relacionadas
         ClientePlanoDTO cliente = clienteService.findById(dto.clienteId())
                 .orElseThrow(() -> new CustomServiceException(idTx, "E004", "Cliente no encontrado"));
-        if(dto.pacienteId() != null){
-             paciente = pacienteService.findById(dto.pacienteId())
+        if (dto.pacienteId() != null) {
+            paciente = pacienteService.findById(dto.pacienteId())
                     .orElseThrow(() -> new CustomServiceException(idTx, "E005", "Paciente no encontrado"));
 
             trabajo.setPaciente(paciente.getId());
@@ -106,6 +113,31 @@ public class JobServiceImpl implements IJobService {
     @Override
     public long countByCliente_Id(Long clienteId) {
         return trabajoRepository.countByCliente_Id(clienteId);
+    }
+
+    @Override
+    @Transactional
+    public void delete(Long id, String idTx) {
+        var trabajo = trabajoRepository.findById(id);
+        if (trabajo.isEmpty()) {
+            throw new CustomServiceException(idTx, "E004", "Trabajo no encontrado");
+        }
+
+        if (permisoService.hasRole("ADMIN")) {
+            Long empresaId = permisoService.empresaIdActualOrNull();
+            if (empresaId == null) {
+                throw new CustomAccesException(idTx, "E500", "El paciente no pertenece a tu empresa");
+            }
+        } else if (permisoService.hasRole("USER")) {
+            Long grupoId = permisoService.grupoIdActualOrNull();
+            if (grupoId == null) {
+                throw new CustomAccesException(idTx, "E500", "El paciente no pertenece a tu grupo");
+            }
+        } else {
+            throw new CustomServiceException(idTx, "E004", "Rol no permitido");
+        }
+
+        trabajoRepository.deleteById(id);
     }
 
     @Transactional(readOnly = true)
@@ -214,35 +246,155 @@ public class JobServiceImpl implements IJobService {
         return dto;
     }
 
-    // ========= DELETE =========
+    @Override
     @Transactional
-    public void deleteTrabajo(Long trabajoId, String idTx) {
-        var opt = trabajoRepository.findById(trabajoId);
-        if (opt.isEmpty()) throw new CustomServiceException(idTx, "E404", "Trabajo no encontrado");
-        Trabajo t = opt.get();
+    public TrabajoDTO update(TrabajoUpdateDTO payload, MultipartFile foto1, MultipartFile foto2, MultipartFile foto3, MultipartFile foto4, String idTx) {
+        Trabajo trabajo = trabajoRepository.findById(payload.getId())
+                .orElseThrow(() -> new CustomServiceException(idTx, "E404", "Trabajo no encontrado"));
 
+        // ======= Validación de alcance por rol =======
+        // ADMIN: por empresa del cliente del trabajo
+        // USER: por grupo del usuario que creó el trabajo
         if (permisoService.hasRole("ADMIN")) {
             Long empresaId = permisoService.empresaIdActualOrNull();
-            Long empresaTrabajo = (t.getCliente() != null && t.getCliente().getEmpresa() != null)
-                    ? t.getCliente().getEmpresa().getId() : null;
-            if (empresaId == null || empresaTrabajo == null || !empresaId.equals(empresaTrabajo)) {
+            Long empresaTrabajo = (trabajo.getCliente() != null && trabajo.getCliente().getEmpresa() != null)
+                    ? trabajo.getCliente().getEmpresa().getId() : null;
+
+            if (empresaId == null || !Objects.equals(empresaId, empresaTrabajo)) {
                 throw new CustomServiceException(idTx, "E005", "El trabajo no pertenece a tu empresa");
             }
         } else if (permisoService.hasRole("USER")) {
             Long grupoId = permisoService.grupoIdActualOrNull();
-            Long grupoTrabajo = (t.getUsuario() != null && t.getUsuario().getGrupo() != null)
-                    ? t.getUsuario().getGrupo().getId() : null;
-            if (grupoId == null || !grupoId.equals(grupoTrabajo)) {
+            Long grupoTrabajo = (trabajo.getUsuario() != null && trabajo.getUsuario().getGrupo() != null)
+                    ? trabajo.getUsuario().getGrupo().getId() : null;
+
+            if (grupoId == null || !Objects.equals(grupoId, grupoTrabajo)) {
                 throw new CustomServiceException(idTx, "E005", "El trabajo no pertenece a tu grupo");
             }
         } else {
             throw new CustomServiceException(idTx, "E005", "Rol no permitido");
         }
 
-        // (Opcional) eliminar archivos S3 asociados si quieres
-        // s3Service.deleteIfNotNull(t.getFoto1()); ...
+        // ======= Actualizar campos básicos (si vienen) =======
+        if (payload.getValorLabor() != null) trabajo.setValorLabor(BigDecimal.valueOf(payload.getValorLabor()));
+        if (payload.getValorMateriales() != null)
+            trabajo.setValorMateriales(BigDecimal.valueOf(payload.getValorMateriales()));
+        if (payload.getGanancias() != null) trabajo.setGanancias(BigDecimal.valueOf(payload.getGanancias()));
+        if (payload.getValorTotal() != null) trabajo.setValorTotal(BigDecimal.valueOf(payload.getValorTotal()));
+        if (payload.getDescripcionLabor() != null) trabajo.setDescripcionLabor(payload.getDescripcionLabor());
 
-        trabajoRepository.deleteById(trabajoId);
+        // ======= Actualizar asociaciones opcionales =======
+        if (payload.getClienteId() != null) {
+            Cliente cliente = clienteService.findClienteById(payload.getClienteId());
+            // (Opcional) Revalidar alcance si cambia el cliente
+            if (permisoService.hasRole("ADMIN")) {
+                Long empresaId = permisoService.empresaIdActualOrNull();
+                Long empresaCliente = (cliente.getEmpresa() != null) ? cliente.getEmpresa().getId() : null;
+                if (empresaId == null || !Objects.equals(empresaId, empresaCliente)) {
+                    throw new CustomServiceException(idTx, "E005", "El cliente no pertenece a tu empresa");
+                }
+            } else if (permisoService.hasRole("USER")) {
+                Long grupoId = permisoService.grupoIdActualOrNull();
+                Long grupoCliente = (cliente.getUsuario() != null && cliente.getUsuario().getGrupo() != null)
+                        ? cliente.getUsuario().getGrupo().getId() : null;
+                if (grupoId == null || !Objects.equals(grupoId, grupoCliente)) {
+                    throw new CustomServiceException(idTx, "E005", "El cliente no pertenece a tu grupo");
+                }
+            }
+
+            trabajo.setEstado(payload.getEstado());
+            trabajo.setCliente(cliente);
+        }
+
+        if (payload.getFormaPagoId() != null) {
+            FormaPago fp = formaPagoRepository.findById(payload.getFormaPagoId())
+                    .orElseThrow(() -> new CustomServiceException(idTx, "E404", "Forma de pago no encontrada"));
+            trabajo.setFormaPago(fp);
+        }
+
+        if (payload.getPacienteId() != null) {
+            PacienteDTO p = pacienteService.findById(payload.getPacienteId())
+                    .orElseThrow(() -> new CustomServiceException(idTx, "E404", "Paciente no encontrado"));
+            trabajo.setPacienteObj(modelMapper.map(p, Paciente.class));
+        }
+
+        // ======= Manejo de imágenes =======
+        // 1) Eliminar si flag=true
+        if (payload.isEliminarFoto1() && trabajo.getFoto1() != null) {
+            s3Service.deleteFile(trabajo.getFoto1());
+            trabajo.setFoto1(null);
+        }
+        if (payload.isEliminarFoto2() && trabajo.getFoto2() != null) {
+            s3Service.deleteFile(trabajo.getFoto2());
+            trabajo.setFoto2(null);
+        }
+        if (payload.isEliminarFoto3() && trabajo.getFoto3() != null) {
+            s3Service.deleteFile(trabajo.getFoto3());
+            trabajo.setFoto3(null);
+        }
+        if (payload.isEliminarFoto4() && trabajo.getFoto4() != null) {
+            s3Service.deleteFile(trabajo.getFoto4());
+            trabajo.setFoto4(null);
+        }
+
+        // 2) Subir nuevas si llegan
+        if (foto1 != null && !foto1.isEmpty()) {
+            byte[] bytes = compressToJpeg(foto1, 0.8f); // ~80% calidad
+            String url = s3Service.uploadFile("trabajos/foto1_", bytes, "image/jpeg");
+            trabajo.setFoto1(url);
+        }
+        if (foto2 != null && !foto2.isEmpty()) {
+            byte[] bytes = compressToJpeg(foto2, 0.8f);
+            String url = s3Service.uploadFile("trabajos/foto2_", bytes, "image/jpeg");
+            trabajo.setFoto2(url);
+        }
+        if (foto3 != null && !foto3.isEmpty()) {
+            byte[] bytes = compressToJpeg(foto3, 0.8f);
+            String url = s3Service.uploadFile("trabajos/foto3_", bytes, "image/jpeg");
+            trabajo.setFoto3(url);
+        }
+        if (foto4 != null && !foto4.isEmpty()) {
+            byte[] bytes = compressToJpeg(foto4, 0.8f);
+            String url = s3Service.uploadFile("trabajos/foto4_", bytes, "image/jpeg");
+            trabajo.setFoto4(url);
+        }
+
+        Trabajo saved = trabajoRepository.save(trabajo);
+        return modelMapper.map(saved, TrabajoDTO.class);
+    }
+
+    /**
+     * Compresión simple a JPEG (sin dependencias externas)
+     */
+    private byte[] compressToJpeg(MultipartFile file, float quality) {
+        try {
+            BufferedImage image = ImageIO.read(file.getInputStream());
+            Iterator<ImageWriter> writers = ImageIO.getImageWritersByFormatName("jpg");
+            if (!writers.hasNext()) {
+                // fallback sin compresión
+                return file.getBytes();
+            }
+            ImageWriter writer = writers.next();
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            try (MemoryCacheImageOutputStream ios = new MemoryCacheImageOutputStream(baos)) {
+                writer.setOutput(ios);
+                ImageWriteParam param = writer.getDefaultWriteParam();
+                if (param.canWriteCompressed()) {
+                    param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+                    param.setCompressionQuality(quality); // 0..1
+                }
+                writer.write(null, new IIOImage(image, null, null), param);
+                writer.dispose();
+            }
+            return baos.toByteArray();
+        } catch (Exception e) {
+            // Si falla compresión, subimos crudo
+            try {
+                return file.getBytes();
+            } catch (Exception ex) {
+                throw new RuntimeException(ex);
+            }
+        }
     }
 
     /**

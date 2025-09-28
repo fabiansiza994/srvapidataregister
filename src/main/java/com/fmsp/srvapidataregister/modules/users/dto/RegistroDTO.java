@@ -3,14 +3,14 @@ package com.fmsp.srvapidataregister.modules.users.dto;
 import com.fmsp.srvapidataregister.modules.companies.entity.Empresa;
 import com.fmsp.srvapidataregister.modules.groups.entity.Grupo;
 import com.fmsp.srvapidataregister.modules.roles.dto.RolDTO;
-import com.fmsp.srvapidataregister.modules.roles.entity.Rol;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
 
-@Setter @Getter
+@Setter
+@Getter
 public class RegistroDTO {
 
     private Long id;

@@ -7,6 +7,8 @@ import com.fmsp.srvapidataregister.modules.clients.entity.Cliente;
 import com.fmsp.srvapidataregister.modules.clients.repository.ClienteRepository;
 import com.fmsp.srvapidataregister.modules.jobs.repository.TrabajoRepository;
 import com.fmsp.srvapidataregister.modules.paciente.dto.PacienteDTO;
+import com.fmsp.srvapidataregister.modules.paciente.dto.PacienteDetailDTO;
+import com.fmsp.srvapidataregister.modules.paciente.dto.PacienteUpdateDTO;
 import com.fmsp.srvapidataregister.modules.paciente.entity.Paciente;
 import com.fmsp.srvapidataregister.modules.paciente.repository.PacienteRepository;
 import com.fmsp.srvapidataregister.modules.paciente.service.IPacienteService;
@@ -16,6 +18,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.file.AccessDeniedException;
 import java.util.List;
@@ -41,6 +44,11 @@ public class PacienteService implements IPacienteService {
 
     @Override
     public PacienteDTO save(PacienteDTO pacienteDTO) {
+        var db = pacienteRepository.findByDocumentoAndClienteId(pacienteDTO.getDocumento(), pacienteDTO.getClienteId());
+        if(db.isPresent()){
+            throw new CustomServiceException("123", "E001", "Ya se existe un registro con el documento: "
+                    +db.get().getDocumento()+" para el cliente "+ clienteRepository.findById(db.get().getClienteId()).get().getNombre());
+        }
         var paciente = modelMapper.map(pacienteDTO, Paciente.class);
         paciente = pacienteRepository.save(paciente);
 
@@ -133,7 +141,20 @@ public class PacienteService implements IPacienteService {
             Long empresaId = permisoService.empresaIdActualOrNull();
             if (empresaId == null) throw new AccessDeniedException("Empresa no asociada");
             return pacienteRepository.findAllByEmpresa(empresaId, pageable)
-                    .map(p -> modelMapper.map(p, PacienteDTO.class));
+                    .map(paciente -> {
+                        // Mapeo normal
+                        PacienteDTO dto = modelMapper.map(paciente, PacienteDTO.class);
+
+                        // Enriquecer con el nombre del cliente
+                        if (paciente.getClienteId() != null) {
+                            clienteRepository.findById(paciente.getClienteId())
+                                    .ifPresent(cliente -> {
+                                        dto.setClienteNombre(cliente.getNombre());
+                                    });
+                        }
+
+                        return dto;
+                    });
         }
 
         if (permisoService.hasRole("USER")) {
@@ -182,5 +203,130 @@ public class PacienteService implements IPacienteService {
 
         return pacienteRepository.findAllByClienteId(clientId, pageable)
                 .map(p -> modelMapper.map(p, PacienteDTO.class));
+    }
+
+    @Transactional(readOnly = true)
+    public PacienteDetailDTO getPacienteDetail(Long pacienteId, String uuid) {
+        var optPac = pacienteRepository.findById(pacienteId);
+        if (optPac.isEmpty()) {
+            throw new CustomServiceException(uuid, "E404", "Paciente no encontrado");
+        }
+        var paciente = optPac.get();
+
+        if (paciente.getClienteId() == null) {
+            throw new CustomServiceException("123", "E004", "Paciente sin cliente asociado");
+        }
+
+        // Resolver Cliente
+        var cliente = clienteRepository.findById(paciente.getClienteId())
+                .orElseThrow(() -> new CustomServiceException(uuid, "E404", "Cliente del paciente no encontrado"));
+
+        // ===== Validación de alcance por rol (ADMIN/USER) =====
+        if (permisoService.hasRole("ADMIN")) {
+            Long empresaId = permisoService.empresaIdActualOrNull();
+            Long empresaClienteId = (cliente.getEmpresa() != null) ? cliente.getEmpresa().getId() : null;
+            if (empresaId == null || empresaClienteId == null || !empresaId.equals(empresaClienteId)) {
+                throw new CustomAccesException(uuid, "E500", "El paciente no pertenece a tu empresa");
+            }
+        } else if (permisoService.hasRole("USER")) {
+            Long grupoId = permisoService.grupoIdActualOrNull();
+            Long grupoCliente = (cliente.getUsuario() != null && cliente.getUsuario().getGrupo() != null)
+                    ? cliente.getUsuario().getGrupo().getId() : null;
+            if (grupoId == null || !grupoId.equals(grupoCliente)) {
+                throw new CustomAccesException(uuid, "E500", "El paciente no pertenece a tu grupo");
+            }
+        } else {
+            throw new CustomServiceException("123", "E004", "Rol no permitido");
+        }
+
+        // Armar detail
+        PacienteDetailDTO detail = new PacienteDetailDTO();
+        detail.setId(paciente.getId());
+        detail.setNombre(paciente.getNombre());
+        detail.setApellido(paciente.getApellido());
+        detail.setDocumento(paciente.getDocumento());
+        detail.setEmail(paciente.getEmail());
+        detail.setTelefono(paciente.getTelefono());
+        detail.setDireccion(paciente.getDireccion());
+        detail.setEstado(paciente.getEstado());
+        detail.setClienteId(cliente.getId());
+        detail.setClienteNombre(cliente.getNombre());
+        detail.setClienteApellido(cliente.getApellido());
+
+        // Auditoría
+        detail.setEmpresaId(cliente.getEmpresa() != null ? cliente.getEmpresa().getId() : null);
+        detail.setGrupoId(
+                (cliente.getUsuario() != null && cliente.getUsuario().getGrupo() != null)
+                        ? cliente.getUsuario().getGrupo().getId()
+                        : null
+        );
+
+        // Conteo de trabajos asociados
+        long trabajos = trabajoRepository.countByPaciente(pacienteId);
+        detail.setTrabajosAsociados(trabajos);
+
+        return detail;
+    }
+
+    @Transactional
+    public PacienteDTO updatePaciente(Long pacienteId, PacienteUpdateDTO dto, String uuid) {
+        var optPac = pacienteRepository.findById(pacienteId);
+        if (optPac.isEmpty()) {
+            throw new CustomServiceException(uuid, "E404", "Paciente no encontrado");
+        }
+        var paciente = optPac.get();
+
+        if (paciente.getClienteId() == null) {
+            throw new CustomServiceException("123", "E004", "Paciente sin cliente asociado");
+        }
+
+        // Resolver Cliente
+        var cliente = clienteRepository.findById(paciente.getClienteId())
+                .orElseThrow(() -> new CustomServiceException(uuid, "E404", "Cliente del paciente no encontrado"));
+
+        // ===== Validación de alcance por rol (ADMIN/USER) =====
+        if (permisoService.hasRole("ADMIN")) {
+            Long empresaId = permisoService.empresaIdActualOrNull();
+            Long empresaClienteId = (cliente.getEmpresa() != null) ? cliente.getEmpresa().getId() : null;
+            if (empresaId == null || empresaClienteId == null || !empresaId.equals(empresaClienteId)) {
+                throw new CustomAccesException(uuid, "E500", "El paciente no pertenece a tu empresa");
+            }
+        } else if (permisoService.hasRole("USER")) {
+            Long grupoId = permisoService.grupoIdActualOrNull();
+            Long grupoCliente = (cliente.getUsuario() != null && cliente.getUsuario().getGrupo() != null)
+                    ? cliente.getUsuario().getGrupo().getId() : null;
+            if (grupoId == null || !grupoId.equals(grupoCliente)) {
+                throw new CustomAccesException(uuid, "E500", "El paciente no pertenece a tu grupo");
+            }
+        } else {
+            throw new CustomServiceException("123", "E004", "Rol no permitido");
+        }
+
+        // ===== Unicidad de documento por cliente (solo si cambia) =====
+        if (dto.getDocumento() != null && !dto.getDocumento().equalsIgnoreCase(
+                paciente.getDocumento() != null ? paciente.getDocumento() : "")) {
+            var dup = pacienteRepository.findByDocumentoAndClienteId(dto.getDocumento(), paciente.getClienteId());
+            if (dup.isPresent() && !dup.get().getId().equals(paciente.getId())) {
+                throw new CustomServiceException(uuid, "E409",
+                        "Ya existe un paciente con el documento " + dto.getDocumento() +
+                                " para el cliente " + cliente.getNombre());
+            }
+        }
+
+        // ===== Actualización de campos =====
+        paciente.setNombre(dto.getNombre());
+        paciente.setApellido(dto.getApellido());
+        paciente.setDocumento(dto.getDocumento());
+        paciente.setEmail(dto.getEmail());
+        paciente.setTelefono(dto.getTelefono());
+        paciente.setDireccion(dto.getDireccion());
+        paciente.setEstado(dto.getEstado());
+
+        var actualizado = pacienteRepository.save(paciente);
+
+        // Retornar como PacienteDTO consistente con el resto del sistema
+        PacienteDTO resp = modelMapper.map(actualizado, PacienteDTO.class);
+        resp.setClienteId(actualizado.getClienteId());
+        return resp;
     }
 }

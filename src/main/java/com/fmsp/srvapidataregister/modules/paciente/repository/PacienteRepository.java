@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface PacienteRepository extends JpaRepository<Paciente, Long> {
@@ -79,4 +80,5 @@ public interface PacienteRepository extends JpaRepository<Paciente, Long> {
                                  Pageable pageable);
 
     Paciente findByClienteId(Long id);
+    Optional<Paciente> findByDocumentoAndClienteId(String documento, Long clienteId);
 }

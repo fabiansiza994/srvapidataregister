@@ -4,6 +4,7 @@ import com.fmsp.srvapidataregister.core.payload.ApiResponse;
 import com.fmsp.srvapidataregister.core.payload.ErrorItemDTO;
 import com.fmsp.srvapidataregister.core.payload.ResponseHandler;
 import com.fmsp.srvapidataregister.modules.paciente.dto.PacienteDTO;
+import com.fmsp.srvapidataregister.modules.paciente.dto.PacienteUpdateDTO;
 import com.fmsp.srvapidataregister.modules.paciente.service.IPacienteService;
 import com.fmsp.srvapidataregister.modules.paciente.service.impl.PacienteService;
 import jakarta.validation.Valid;
@@ -112,5 +113,35 @@ public class PacienteController {
         payload.put("message", "Paciente eliminado correctamente");
 
         return ResponseHandler.successResponse(payload, uuid);
+    }
+
+    @GetMapping("/detail/{id}")
+    public ResponseEntity<ApiResponse<Object>> getDetail(@PathVariable("id") Long id) throws AccessDeniedException {
+        String uuid = UUID.randomUUID().toString();
+        var detail = ((PacienteService) pacienteService).getPacienteDetail(id, uuid);
+        return ResponseHandler.successResponse(detail, uuid);
+    }
+
+    @PutMapping("/update/{id}")
+    public ResponseEntity<ApiResponse<Object>> update(
+            @PathVariable("id") Long id,
+            @RequestBody @Valid PacienteUpdateDTO dto,
+            BindingResult result
+    ) throws AccessDeniedException {
+        String uuid = UUID.randomUUID().toString();
+
+        if (result.hasErrors()) {
+            List<ErrorItemDTO> errores = result.getFieldErrors().stream()
+                    .map(error -> new ErrorItemDTO(
+                            "E400",
+                            error.getDefaultMessage(),
+                            error.getField()))
+                    .collect(Collectors.toList());
+
+            return ResponseHandler.badRequestResponse(errores, uuid);
+        }
+
+        var updated = ((PacienteService) pacienteService).updatePaciente(id, dto, uuid);
+        return ResponseHandler.successResponse(updated, uuid);
     }
 }

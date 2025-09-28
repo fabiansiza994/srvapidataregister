@@ -19,6 +19,7 @@ public class PacienteDTO {
     private String email;
     @NotNull
     private Long clienteId;
+    private String clienteNombre;
     private String direccion;
     private String estado = "ACTIVO";
 }

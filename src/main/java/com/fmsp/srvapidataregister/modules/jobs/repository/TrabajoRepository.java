@@ -8,13 +8,16 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
+import java.util.List;
+
 @Repository
 public interface TrabajoRepository extends JpaRepository<Trabajo, Long> {
     long countByCliente_Id(Long clienteId);
 
     long countByPaciente(Long pacienteId);
 
-    ;
+    long countByFormaPago_Id(Long formaPagoId);
 
     // Listar por empresa (vía cliente -> empresa)
     @Query("""
@@ -81,4 +84,16 @@ public interface TrabajoRepository extends JpaRepository<Trabajo, Long> {
     Page<Trabajo> searchByGrupo(@Param("grupoId") Long grupoId,
                                 @Param("q") String q,
                                 Pageable pageable);
+
+    @Query("""
+              select t from Trabajo t
+                left join fetch t.cliente c
+                left join fetch c.empresa e
+                left join fetch t.pacienteObj p
+                left join fetch t.formaPago fp
+              where t.fecha between :from and :to
+                and e.id = :empresaId
+              order by t.fecha asc, t.id asc
+            """)
+    List<Trabajo> findByFechaBetweenAndClienteEmpresaId(LocalDate from, LocalDate to, Long empresaId);
 }

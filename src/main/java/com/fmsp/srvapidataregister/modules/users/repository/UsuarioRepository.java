@@ -5,9 +5,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 
@@ -67,4 +69,14 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
     @EntityGraph(attributePaths = {"grupo", "grupo.empresa", "rol"})
     @Query("SELECT u FROM Usuario u WHERE LOWER(u.usuario) = LOWER(:username)")
     java.util.Optional<Usuario> findByUsuarioWithRelations(@Param("username") String username);
+
+    @EntityGraph(attributePaths = {"grupo", "grupo.empresa", "grupo.empresa.sector", "grupo.empresa.pais", "rol"})
+    @Query("SELECT u FROM Usuario u WHERE u.id = :id")
+    Optional<Usuario> fetchDetailMenu(@Param("id") Long id);
+
+    @Transactional
+    @Modifying
+    @Query("UPDATE Usuario u SET u.intentosFallidos =:value, u.bloqueado =:isBlocked where u.id =:id")
+    int updateBlockValue(@Param("value") int value, @Param("isBlocked") Boolean isBlocked,  @Param("id") Long id);
+
 }

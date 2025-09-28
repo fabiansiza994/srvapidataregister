@@ -1,6 +1,8 @@
 package com.fmsp.srvapidataregister.modules.paciente.service;
 
 import com.fmsp.srvapidataregister.modules.paciente.dto.PacienteDTO;
+import com.fmsp.srvapidataregister.modules.paciente.dto.PacienteDetailDTO;
+import com.fmsp.srvapidataregister.modules.paciente.dto.PacienteUpdateDTO;
 
 import java.nio.file.AccessDeniedException;
 import java.util.List;
@@ -13,4 +15,6 @@ public interface IPacienteService {
     Optional<PacienteDTO> findById(Long aLong);
     void deletePaciente(Long pacienteId, String uuid) throws AccessDeniedException;
     List<PacienteDTO> findByCliente(Long clienteId);
+    PacienteDetailDTO getPacienteDetail(Long pacienteId, String uuid);
+    PacienteDTO updatePaciente(Long pacienteId, PacienteUpdateDTO dto, String uuid);
 }

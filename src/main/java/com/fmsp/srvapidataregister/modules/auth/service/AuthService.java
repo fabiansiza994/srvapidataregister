@@ -14,6 +14,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AuthService {
@@ -33,7 +34,7 @@ public class AuthService {
     }
 
     public AuthResponse login(LoginRequest request) {
-        UsuarioDTO usuarioDTO = usuarioService.getUsuarioByUsername(request.getUsername())
+        UsuarioDTO usuarioDTO = usuarioService.getUsuarioByUsername(request.getUsername().trim())
                 .orElseThrow(() -> new UnauthorizedException("Usuario o contraseña inválidos"));
 
         if (usuarioDTO.isBloqueado()) {
@@ -44,8 +45,8 @@ public class AuthService {
             Authentication auth = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword()));
 
-            usuarioDTO.setIntentosFallidos(0);
-            usuarioService.saveUsuario(usuarioDTO);
+
+            usuarioService.updateBlockValue(0, false, usuarioDTO.getId());
 
             UserDetails user = (UserDetails) auth.getPrincipal();
             String token = jwtService.generateToken(user);
@@ -55,12 +56,12 @@ public class AuthService {
             usuarioDTO.setIntentosFallidos(usuarioDTO.getIntentosFallidos() + 1);
 
             if (usuarioDTO.getIntentosFallidos() >= MAX_INTENTOS_FALLIDOS) {
-                usuarioDTO.setBloqueado(true);
-                usuarioService.saveUsuario(usuarioDTO);
+                usuarioService.updateBlockValue(usuarioDTO.getIntentosFallidos(), true, usuarioDTO.getId());
                 throw new ForbiddenException("Has excedido el número máximo de intentos. Tu cuenta ha sido bloqueada.");
             }
 
-            usuarioService.saveUsuario(usuarioDTO);
+            usuarioService.updateBlockValue(usuarioDTO.getIntentosFallidos(), false, usuarioDTO.getId());
+
             throw new UnauthorizedException(String.format(
                     "Usuario o contraseña inválidos. Intento %d de %d",
                     usuarioDTO.getIntentosFallidos(),

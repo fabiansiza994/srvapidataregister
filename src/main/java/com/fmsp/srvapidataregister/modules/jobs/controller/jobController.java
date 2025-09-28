@@ -5,8 +5,13 @@ import com.fmsp.srvapidataregister.core.payload.ErrorItemDTO;
 import com.fmsp.srvapidataregister.core.payload.ResponseHandler;
 import com.fmsp.srvapidataregister.modules.jobs.dto.TrabajoCreateDTO;
 import com.fmsp.srvapidataregister.modules.jobs.dto.TrabajoDTO;
+import com.fmsp.srvapidataregister.modules.jobs.dto.TrabajoUpdateDTO;
 import com.fmsp.srvapidataregister.modules.jobs.service.IJobService;
+import com.fmsp.srvapidataregister.modules.jobs.service.impl.JobReportService;
 import jakarta.validation.Valid;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
@@ -22,9 +27,11 @@ import java.util.stream.Collectors;
 @RequestMapping("job")
 public class jobController {
 
+    private final JobReportService jobReportService;
     private final IJobService jobService;
 
-    public jobController(IJobService jobService) {
+    public jobController(JobReportService jobReportService, IJobService jobService) {
+        this.jobReportService = jobReportService;
         this.jobService = jobService;
     }
 
@@ -84,12 +91,68 @@ public class jobController {
     @DeleteMapping("/delete/{id}")
     public ResponseEntity<ApiResponse<Object>> delete(@PathVariable("id") Long id) {
         String idTx = UUID.randomUUID().toString();
-        jobService.deleteTrabajo(id, idTx);
+        jobService.delete(id, idTx);
 
         var payload = new HashMap<String, Object>();
         payload.put("deletedId", id);
         payload.put("message", "Trabajo eliminado correctamente");
 
         return ResponseHandler.successResponse(payload, idTx);
+    }
+
+    // modules/jobs/controller/jobController.java
+    @PutMapping(value = "/update/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<Object>> update(
+            @PathVariable("id") Long id,
+            @RequestPart("payload") @Valid TrabajoUpdateDTO payload,
+            BindingResult result,
+            @RequestPart(value = "foto1", required = false) MultipartFile foto1,
+            @RequestPart(value = "foto2", required = false) MultipartFile foto2,
+            @RequestPart(value = "foto3", required = false) MultipartFile foto3,
+            @RequestPart(value = "foto4", required = false) MultipartFile foto4
+    ) {
+        String idTx = UUID.randomUUID().toString();
+
+        if (!id.equals(payload.getId())) {
+            var errores = List.of(new ErrorItemDTO("E400", "El id del path no coincide con el del payload", "id"));
+            return ResponseHandler.badRequestResponse(errores, idTx);
+        }
+
+        if (result.hasErrors()) {
+            List<ErrorItemDTO> errores = result.getFieldErrors().stream()
+                    .map(e -> new ErrorItemDTO("E400", e.getDefaultMessage(), e.getField()))
+                    .collect(Collectors.toList());
+            return ResponseHandler.badRequestResponse(errores, idTx);
+        }
+
+        TrabajoDTO updated = jobService.update(
+                payload, foto1, foto2, foto3, foto4, idTx
+        );
+        return ResponseHandler.successResponse(updated, idTx);
+    }
+
+    @GetMapping("/report/excel")
+    public ResponseEntity<byte[]> reportExcel(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) java.time.LocalDate from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) java.time.LocalDate to,
+            @RequestParam Long empresaId
+    ) {
+        String idTx = java.util.UUID.randomUUID().toString();
+        // (opcional) validar rango
+        if (from.isAfter(to)) {
+            var errores = java.util.List.of(new ErrorItemDTO("E400", "from > to", "range"));
+            return null;
+        }
+
+        byte[] xlsx = jobReportService.buildExcel(from, to, empresaId);
+
+        String filename = String.format("reporte_trabajos_%s_a_%s.xlsx", from, to);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+        headers.set(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"");
+        headers.setContentLength(xlsx.length);
+
+        // Si quieres envolver en ApiResponse, no uses content-disposition; para descarga es mejor bytes directos.
+        return new ResponseEntity<>(xlsx, headers, HttpStatus.OK);
     }
 }

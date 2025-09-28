@@ -111,6 +111,11 @@ public class ClienteService implements IClienteService {
     }
 
     @Override
+    public Cliente findClienteById(Long id) {
+        return clienteRepository.findById(id).orElseThrow(() -> new CustomServiceException("123", "E404", "Cliente no encontrado"));
+    }
+
+    @Override
     public Page<ClientePlanoDTO> searchClientes(String q, int page, int size, String sortBy, String direction) {
         if (q == null || q.trim().isEmpty()) {
             // Si no mandan criterio, delega a listarClientes con los mismos params
@@ -262,17 +267,4 @@ public class ClienteService implements IClienteService {
         var actualizado = clienteRepository.save(cliente);
         return modelMapper.map(actualizado, ClienteResponseDTO.class);
     }
-
-    /*@PreAuthorize("hasRole('ADMIN') || (hasRole('USER') && @permisoService.mismoGrupo(#clienteId))")
-    public ClienteDTO obtenerCliente(Long clienteId) {
-        // Lógica para obtener cliente
-        return null;
-    }
-
-    @PreAuthorize("hasRole('ADMIN_EMPRESA') || (hasRole('USER_NORMAL') && @permisoService.esCreadorCliente(#clienteId))")
-    public ClienteDTO modificarCliente(Long clienteId, ClienteDTO request) {
-        // Lógica para modificar cliente
-        return null;
-    }*/
-
 }

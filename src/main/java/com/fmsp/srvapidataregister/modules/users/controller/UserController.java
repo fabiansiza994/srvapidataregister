@@ -122,4 +122,12 @@ public class UserController {
         payload.put("message", "Usuario eliminado correctamente");
         return ResponseHandler.successResponse(payload, uuid);
     }
+
+    @GetMapping("/profile/{id}")
+    public ResponseEntity<ApiResponse<Object>> profile(@PathVariable Long id) {
+        String uuid = UUID.randomUUID().toString();
+        var profile = usuarioService.profile(id, uuid);
+        return ResponseHandler.successResponse(profile, uuid);
+    }
+
 }

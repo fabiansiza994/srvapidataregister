@@ -4,14 +4,16 @@ import com.fmsp.srvapidataregister.core.exceptions.CustomServiceException;
 import com.fmsp.srvapidataregister.core.exceptions.InternalServerException;
 import com.fmsp.srvapidataregister.modules.auth.service.PermisoService;
 import com.fmsp.srvapidataregister.modules.companies.dto.EmpresaDTO;
+import com.fmsp.srvapidataregister.modules.companies.dto.EmpresaLiteDTO;
 import com.fmsp.srvapidataregister.modules.companies.entity.Empresa;
 import com.fmsp.srvapidataregister.modules.companies.service.IEmpresaService;
 import com.fmsp.srvapidataregister.modules.groups.dto.GrupoDTO;
+import com.fmsp.srvapidataregister.modules.groups.dto.GrupoLiteDTO;
 import com.fmsp.srvapidataregister.modules.groups.entity.Grupo;
 import com.fmsp.srvapidataregister.modules.groups.repository.GrupoRepository;
-import com.fmsp.srvapidataregister.modules.groups.service.IGrupoService;
 import com.fmsp.srvapidataregister.modules.pais.service.IPaisService;
 import com.fmsp.srvapidataregister.modules.roles.dto.RolDTO;
+import com.fmsp.srvapidataregister.modules.roles.dto.RolLiteDTO;
 import com.fmsp.srvapidataregister.modules.roles.entity.Rol;
 import com.fmsp.srvapidataregister.modules.roles.service.IRolService;
 import com.fmsp.srvapidataregister.modules.sector.service.ISectorService;
@@ -70,17 +72,21 @@ public class UsuarioService implements IUsuarioService {
     public Optional<UsuarioDTO> getUsuarioByUsername(String username) {
         Optional<Usuario> user = usuarioRepository.findByUsuarioWithRelations(username);
 
-        if(user.isEmpty()){
+        if (user.isEmpty()) {
             throw new CustomServiceException("123", "E003", "usuario o clave incorrecto :/");
         }
 
         UsuarioDTO usuarioDTO = new UsuarioDTO();
+        usuarioDTO.setId(user.get().getId());
+        usuarioDTO.setUsuario(user.get().getUsuario());
         usuarioDTO.setNombre(user.get().getNombre());
         usuarioDTO.setApellido(user.get().getApellido());
+        usuarioDTO.setPassword(user.get().getPassword());
+        usuarioDTO.setEmail(user.get().getEmail());
+
         usuarioDTO.setBloqueado(user.get().isBloqueado());
         usuarioDTO.setIntentosFallidos(user.get().getIntentosFallidos());
         usuarioDTO.setBloqueado(user.get().isBloqueado());
-        usuarioDTO.setRol(modelMapper.map(user.get().getRol(), RolDTO.class));
         return Optional.of(usuarioDTO);
     }
 
@@ -109,30 +115,30 @@ public class UsuarioService implements IUsuarioService {
 
         EmpresaDTO empresaGuardada = null;
         var empresaDB = empresaService.findByNombre(registroDTO.getEmpresa().getNombre());
-        if(empresaDB == null){
+        if (empresaDB == null) {
             EmpresaDTO empresaDTO = modelMapper.map(registroDTO.getEmpresa(), EmpresaDTO.class);
             empresaDTO.setPais(pais);
             empresaDTO.setSector(sector);
             empresaDTO.setEstado("ACTIVO");
             empresaGuardada = empresaService.save(empresaDTO);
-        }else{
+        } else {
             empresaGuardada = empresaDB;
         }
 
         RolDTO rol;
-        if(registroDTO.getRol() == null || registroDTO.getRol().getId() == null){
+        if (registroDTO.getRol() == null || registroDTO.getRol().getId() == null) {
             rol = rolService.findById(1L);
-        }else{
+        } else {
             rol = rolService.findById(registroDTO.getRol().getId());
         }
 
         Grupo grupoGuardado;
-        if(registroDTO.getGrupo().getId() == null && registroDTO.getGrupo().getNombre() != null){
+        if (registroDTO.getGrupo().getId() == null && registroDTO.getGrupo().getNombre() != null) {
             Grupo grupo = new Grupo();
             grupo.setNombre(registroDTO.getGrupo().getNombre());
             grupo.setEmpresa(modelMapper.map(empresaGuardada, Empresa.class));
             grupoGuardado = grupoRepository.save(grupo);
-        }else{
+        } else {
             var grupoDB = grupoRepository.findById(registroDTO.getGrupo().getId());
             grupoGuardado = grupoDB.get();
         }
@@ -142,6 +148,8 @@ public class UsuarioService implements IUsuarioService {
         usuarioDTO.setRol(rol);
         usuarioDTO.setGrupo(modelMapper.map(grupoGuardado, GrupoDTO.class));
         usuarioDTO.setPassword(passwordEncoder.encode(usuarioDTO.getPassword()));
+
+        usuarioDTO.setUsuario(usuarioDTO.getUsuario().toLowerCase().trim());
 
         var mapper = modelMapper.map(usuarioDTO, Usuario.class);
         usuarioRepository.save(mapper);
@@ -210,14 +218,14 @@ public class UsuarioService implements IUsuarioService {
 
         if (permisoService.hasRole("ADMIN")) {
             Long empresaId = permisoService.empresaIdActualOrNull();
-            Long empresaUsuario = (u.getGrupo()!=null && u.getGrupo().getEmpresa()!=null)
+            Long empresaUsuario = (u.getGrupo() != null && u.getGrupo().getEmpresa() != null)
                     ? u.getGrupo().getEmpresa().getId() : null;
             if (empresaId == null || empresaUsuario == null || !empresaId.equals(empresaUsuario)) {
                 throw new CustomServiceException(uuid, "E404", "El usuario no pertenece a tu empresa");
             }
         } else if (permisoService.hasRole("USER")) {
             Long grupoId = permisoService.grupoIdActualOrNull();
-            Long grupoUsuario = (u.getGrupo()!=null) ? u.getGrupo().getId() : null;
+            Long grupoUsuario = (u.getGrupo() != null) ? u.getGrupo().getId() : null;
             if (grupoId == null || !grupoId.equals(grupoUsuario)) {
                 throw new CustomServiceException(uuid, "E404", "El usuario no pertenece a tu grupo");
             }
@@ -237,7 +245,7 @@ public class UsuarioService implements IUsuarioService {
                 .orElseThrow(() -> new CustomServiceException(uuid, "E404", "Usuario no encontrado"));
 
         Long empresaId = permisoService.empresaIdActualOrNull();
-        Long empresaUsuario = (u.getGrupo()!=null && u.getGrupo().getEmpresa()!=null)
+        Long empresaUsuario = (u.getGrupo() != null && u.getGrupo().getEmpresa() != null)
                 ? u.getGrupo().getEmpresa().getId() : null;
         if (empresaId == null || empresaUsuario == null || !empresaId.equals(empresaUsuario)) {
             throw new CustomServiceException(uuid, "E404", "El usuario no pertenece a tu empresa");
@@ -262,7 +270,7 @@ public class UsuarioService implements IUsuarioService {
             var g = grupoRepository.findById(dto.getGrupoId())
                     .orElseThrow(() -> new CustomServiceException(uuid, "E003", "Grupo no encontrado"));
             // grupo debe ser de la misma empresa del admin
-            Long empresaGrupo = (g.getEmpresa()!=null) ? g.getEmpresa().getId() : null;
+            Long empresaGrupo = (g.getEmpresa() != null) ? g.getEmpresa().getId() : null;
             if (!empresaId.equals(empresaGrupo)) {
                 throw new CustomServiceException(uuid, "E404", "No puedes mover el usuario a un grupo de otra empresa");
             }
@@ -292,7 +300,7 @@ public class UsuarioService implements IUsuarioService {
                 .orElseThrow(() -> new CustomServiceException(uuid, "E404", "Usuario no encontrado"));
 
         Long empresaId = permisoService.empresaIdActualOrNull();
-        Long empresaUsuario = (u.getGrupo()!=null && u.getGrupo().getEmpresa()!=null)
+        Long empresaUsuario = (u.getGrupo() != null && u.getGrupo().getEmpresa() != null)
                 ? u.getGrupo().getEmpresa().getId() : null;
         if (empresaId == null || empresaUsuario == null || !empresaId.equals(empresaUsuario)) {
             throw new CustomServiceException(uuid, "E404", "El usuario no pertenece a tu empresa");
@@ -303,6 +311,76 @@ public class UsuarioService implements IUsuarioService {
         usuarioRepository.deleteById(id);
     }
 
+    @Override
+    public UserProfileDTO profile(Long id, String uuid) {
+        var opt = usuarioRepository.fetchDetailMenu(id);
+        if (opt.isEmpty()) throw new CustomServiceException(uuid, "E404", "Usuario no encontrado");
+        var u = opt.get();
+
+        // ===== Autorización (igual filosofía que detail) =====
+        if (permisoService.hasRole("ADMIN")) {
+            Long empresaId = permisoService.empresaIdActualOrNull();
+            Long empresaUsuario = (u.getGrupo() != null && u.getGrupo().getEmpresa() != null)
+                    ? u.getGrupo().getEmpresa().getId() : null;
+            if (empresaId == null || empresaUsuario == null || !empresaId.equals(empresaUsuario)) {
+                throw new CustomServiceException(uuid, "E404", "El usuario no pertenece a tu empresa");
+            }
+        } else if (permisoService.hasRole("USER")) {
+            Long grupoId = permisoService.grupoIdActualOrNull();
+            Long grupoUsuario = (u.getGrupo() != null) ? u.getGrupo().getId() : null;
+            if (grupoId == null || !grupoId.equals(grupoUsuario)) {
+                throw new CustomServiceException(uuid, "E404", "El usuario no pertenece a tu grupo");
+            }
+        } else {
+            throw new CustomServiceException(uuid, "E404", "Rol no permitido");
+        }
+
+        return toProfileDTO(u);
+    }
+
+    @Override
+    public int updateBlockValue(int value, Boolean isBlocked, Long id) {
+        return usuarioRepository.updateBlockValue(value, isBlocked, id);
+    }
+
+    private UserProfileDTO toProfileDTO(Usuario u) {
+        UserProfileDTO d = new UserProfileDTO();
+        d.setId(u.getId());
+        d.setNombre(u.getNombre());
+        d.setApellido(u.getApellido());
+        d.setUsuario(u.getUsuario());
+        d.setEmail(u.getEmail());
+        d.setIntentosFallidos(u.getIntentosFallidos());
+        d.setBloqueado(u.isBloqueado());
+
+        if (u.getRol() != null) {
+            RolLiteDTO r = new RolLiteDTO();
+            r.setId(u.getRol().getId());
+            r.setNombre(u.getRol().getNombre());
+            d.setRol(r);
+        }
+
+        if (u.getGrupo() != null) {
+            GrupoLiteDTO g = new GrupoLiteDTO();
+            g.setId(u.getGrupo().getId());
+            g.setNombre(u.getGrupo().getNombre());
+            d.setGrupo(g);
+
+            if (u.getGrupo().getEmpresa() != null) {
+                var e = u.getGrupo().getEmpresa();
+                EmpresaLiteDTO emp = new EmpresaLiteDTO();
+                emp.setId(e.getId());
+                emp.setNombre(e.getNombre());
+                // Campos opcionales si están cargados en el grafo:
+                emp.setSectorNombre(e.getSector() != null ? e.getSector().getNombre() : null);
+                emp.setPaisNombre(e.getPais() != null ? e.getPais().getNombre() : null);
+                d.setEmpresa(emp);
+            }
+        }
+
+        return d;
+    }
+
     // ====== mapeos ======
     private UsuarioListDTO toListDTO(Usuario u) {
         UsuarioListDTO d = new UsuarioListDTO();
@@ -311,11 +389,11 @@ public class UsuarioService implements IUsuarioService {
         d.setApellido(u.getApellido());
         d.setUsuario(u.getUsuario());
         d.setEmail(u.getEmail());
-        if (u.getGrupo()!=null) {
+        if (u.getGrupo() != null) {
             d.setGrupoId(u.getGrupo().getId());
             d.setGrupoNombre(u.getGrupo().getNombre());
         }
-        if (u.getRol()!=null) d.setRolNombre(u.getRol().getNombre());
+        if (u.getRol() != null) d.setRolNombre(u.getRol().getNombre());
         d.setBloqueado(u.isBloqueado());
         return d;
     }
@@ -327,11 +405,11 @@ public class UsuarioService implements IUsuarioService {
         d.setApellido(u.getApellido());
         d.setUsuario(u.getUsuario());
         d.setEmail(u.getEmail());
-        if (u.getGrupo()!=null) {
+        if (u.getGrupo() != null) {
             d.setGrupoId(u.getGrupo().getId());
             d.setGrupoNombre(u.getGrupo().getNombre());
         }
-        if (u.getRol()!=null) {
+        if (u.getRol() != null) {
             d.setRolId(u.getRol().getId());
             d.setRolNombre(u.getRol().getNombre());
         }
