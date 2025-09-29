@@ -21,6 +21,7 @@ import com.fmsp.srvapidataregister.modules.users.dto.*;
 import com.fmsp.srvapidataregister.modules.users.entity.Usuario;
 import com.fmsp.srvapidataregister.modules.users.repository.UsuarioRepository;
 import com.fmsp.srvapidataregister.modules.users.service.IUsuarioService;
+import lombok.AllArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -34,6 +35,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Service
+@AllArgsConstructor
 public class UsuarioService implements IUsuarioService {
 
     private final UsuarioRepository usuarioRepository;
@@ -45,22 +47,7 @@ public class UsuarioService implements IUsuarioService {
     private final GrupoRepository grupoRepository;
     private final ISectorService sectorService;
     private final IPaisService paisService;
-
     private final PermisoService permisoService;
-
-    public UsuarioService(UsuarioRepository usuarioRepository, ModelMapper modelMapper, PasswordEncoder passwordEncoder,
-                          IRolService rolService, IEmpresaService empresaService, GrupoRepository grupoRepository,
-                          ISectorService sectorService, IPaisService paisService, PermisoService permisoService) {
-        this.usuarioRepository = usuarioRepository;
-        this.modelMapper = modelMapper;
-        this.passwordEncoder = passwordEncoder;
-        this.rolService = rolService;
-        this.empresaService = empresaService;
-        this.grupoRepository = grupoRepository;
-        this.sectorService = sectorService;
-        this.paisService = paisService;
-        this.permisoService = permisoService;
-    }
 
     @Override
     public Optional<UsuarioDTO> getUsuarioById(Long id) {
