@@ -26,6 +26,12 @@ public class Empresa {
 
     private String estado; // ACTIVO, INACTIVO, PENDIENTE
 
+    @Column(name = "user_limit")
+    private Integer userLimit = 3;
+
+    private Boolean allowView = false;
+    private Boolean allowEdit = false;
+
     @OneToMany(mappedBy = "empresa")
     private List<Grupo> grupos;
 

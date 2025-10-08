@@ -13,4 +13,5 @@ public interface IMOPService {
     List<FormaPagoDTO> findAllByEmpresa(Long id);
     void deleteById(Long id);
     FormaPagoDTO update(FormaPagoDTO formapagoDTO);
+    FormaPagoCreateDTO saveNewUser(FormaPagoCreateDTO formapagoDTO);
 }

@@ -5,6 +5,7 @@ import com.fmsp.srvapidataregister.core.exceptions.CustomServiceException;
 import com.fmsp.srvapidataregister.modules.auth.service.PermisoService;
 import com.fmsp.srvapidataregister.modules.clients.entity.Cliente;
 import com.fmsp.srvapidataregister.modules.clients.repository.ClienteRepository;
+import com.fmsp.srvapidataregister.modules.companies.service.ICompanyService;
 import com.fmsp.srvapidataregister.modules.jobs.repository.TrabajoRepository;
 import com.fmsp.srvapidataregister.modules.paciente.dto.PacienteDTO;
 import com.fmsp.srvapidataregister.modules.paciente.dto.PacienteDetailDTO;
@@ -33,13 +34,15 @@ public class PacienteService implements IPacienteService {
     private final TrabajoRepository trabajoRepository;
     private final ModelMapper modelMapper;
     private final ClienteRepository clienteRepository;
+    private final ICompanyService companyService;
 
-    public PacienteService(PermisoService permisoService, PacienteRepository pacienteRepository, TrabajoRepository trabajoRepository, ModelMapper modelMapper, ClienteRepository clienteRepository) {
+    public PacienteService(PermisoService permisoService, PacienteRepository pacienteRepository, TrabajoRepository trabajoRepository, ModelMapper modelMapper, ClienteRepository clienteRepository, ICompanyService companyService) {
         this.permisoService = permisoService;
         this.pacienteRepository = pacienteRepository;
         this.trabajoRepository = trabajoRepository;
         this.modelMapper = modelMapper;
         this.clienteRepository = clienteRepository;
+        this.companyService = companyService;
     }
 
     @Override
@@ -137,8 +140,10 @@ public class PacienteService implements IPacienteService {
                 : Sort.by(sortBy).ascending();
         Pageable pageable = PageRequest.of(page, size, sort);
 
-        if (permisoService.hasRole("ADMIN")) {
-            Long empresaId = permisoService.empresaIdActualOrNull();
+        Long empresaId = permisoService.empresaIdActualOrNull();
+        var allowed = companyService.getSettings(empresaId, "123");
+
+        if (allowed.getAllowView() || permisoService.hasRole("ADMIN")) {
             if (empresaId == null) throw new AccessDeniedException("Empresa no asociada");
             return pacienteRepository.findAllByEmpresa(empresaId, pageable)
                     .map(paciente -> {
@@ -221,9 +226,11 @@ public class PacienteService implements IPacienteService {
         var cliente = clienteRepository.findById(paciente.getClienteId())
                 .orElseThrow(() -> new CustomServiceException(uuid, "E404", "Cliente del paciente no encontrado"));
 
+        Long empresaId = permisoService.empresaIdActualOrNull();
+        var allowed = companyService.getSettings(empresaId, "123");
+
         // ===== Validación de alcance por rol (ADMIN/USER) =====
-        if (permisoService.hasRole("ADMIN")) {
-            Long empresaId = permisoService.empresaIdActualOrNull();
+        if (allowed.getAllowView() || permisoService.hasRole("ADMIN")) {
             Long empresaClienteId = (cliente.getEmpresa() != null) ? cliente.getEmpresa().getId() : null;
             if (empresaId == null || empresaClienteId == null || !empresaId.equals(empresaClienteId)) {
                 throw new CustomAccesException(uuid, "E500", "El paciente no pertenece a tu empresa");
@@ -284,9 +291,11 @@ public class PacienteService implements IPacienteService {
         var cliente = clienteRepository.findById(paciente.getClienteId())
                 .orElseThrow(() -> new CustomServiceException(uuid, "E404", "Cliente del paciente no encontrado"));
 
+        Long empresaId = permisoService.empresaIdActualOrNull();
+        var allowed = companyService.getSettings(empresaId, "123");
+
         // ===== Validación de alcance por rol (ADMIN/USER) =====
-        if (permisoService.hasRole("ADMIN")) {
-            Long empresaId = permisoService.empresaIdActualOrNull();
+        if (allowed.getAllowEdit() || permisoService.hasRole("ADMIN")) {
             Long empresaClienteId = (cliente.getEmpresa() != null) ? cliente.getEmpresa().getId() : null;
             if (empresaId == null || empresaClienteId == null || !empresaId.equals(empresaClienteId)) {
                 throw new CustomAccesException(uuid, "E500", "El paciente no pertenece a tu empresa");

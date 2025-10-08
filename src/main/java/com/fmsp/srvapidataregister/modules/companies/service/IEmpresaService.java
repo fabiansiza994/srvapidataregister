@@ -6,4 +6,5 @@ public interface IEmpresaService {
     EmpresaDTO save(EmpresaDTO empresaDTO);
     EmpresaDTO findById(Long id);
     EmpresaDTO findByNombre(String nombre);
+    Integer getLimit(String nombre);
 }

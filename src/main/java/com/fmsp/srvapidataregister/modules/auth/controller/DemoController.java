@@ -37,4 +37,9 @@ public class DemoController {
         UUID uuid = UUID.randomUUID();
         return ResponseHandler.successResponse("📄 Hola CLIENT/ADMIN, puedes ver los estados de los procesos.", uuid.toString());
     }
+
+    @GetMapping("health")
+    public String health() {
+        return "OK";
+    }
 }

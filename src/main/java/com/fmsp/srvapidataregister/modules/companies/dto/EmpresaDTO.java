@@ -14,6 +14,7 @@ public class EmpresaDTO {
     private String nombre;
     private String nit;
     private String estado; // ACTIVO, INACTIVO, PENDIENTE
+    private Integer userLimit;
     private List<GrupoDTO> grupos;
     private PaisDTO pais;
     private SectorDTO sector;

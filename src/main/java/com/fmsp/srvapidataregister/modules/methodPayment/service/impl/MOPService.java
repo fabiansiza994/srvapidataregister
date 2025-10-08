@@ -40,8 +40,13 @@ public class MOPService implements IMOPService {
     public FormaPagoCreateDTO save(FormaPagoCreateDTO formapagoDTO) {
         String uuid = UUID.randomUUID().toString();
         if (!permisoService.hasRole("ADMIN")) {
-            throw new CustomServiceException(uuid, "E003", "No autorizado para eliminar formas de pago");
+            throw new CustomServiceException(uuid, "E003", "No autorizado para crear formas de pago");
         }
+        var formaPago = repository.save(modelMapper.map(formapagoDTO, FormaPago.class));
+        return modelMapper.map(formaPago, FormaPagoCreateDTO.class);
+    }
+
+    public FormaPagoCreateDTO saveNewUser(FormaPagoCreateDTO formapagoDTO) {
         var formaPago = repository.save(modelMapper.map(formapagoDTO, FormaPago.class));
         return modelMapper.map(formaPago, FormaPagoCreateDTO.class);
     }

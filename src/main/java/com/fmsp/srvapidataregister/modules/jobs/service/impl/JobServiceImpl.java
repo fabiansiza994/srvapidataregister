@@ -7,6 +7,7 @@ import com.fmsp.srvapidataregister.modules.auth.service.PermisoService;
 import com.fmsp.srvapidataregister.modules.clients.dto.ClientePlanoDTO;
 import com.fmsp.srvapidataregister.modules.clients.entity.Cliente;
 import com.fmsp.srvapidataregister.modules.clients.service.IClienteService;
+import com.fmsp.srvapidataregister.modules.companies.service.ICompanyService;
 import com.fmsp.srvapidataregister.modules.jobs.dto.*;
 import com.fmsp.srvapidataregister.modules.jobs.entity.Trabajo;
 import com.fmsp.srvapidataregister.modules.jobs.repository.TrabajoRepository;
@@ -58,6 +59,7 @@ public class JobServiceImpl implements IJobService {
     private final IPacienteService pacienteService;
     private final IMOPService imoService;
     private final S3Service s3Service;
+    private final ICompanyService companyService;
     private final ModelMapper modelMapper;
 
     @Override
@@ -150,8 +152,10 @@ public class JobServiceImpl implements IJobService {
                 : Sort.by(sortBy).ascending();
         Pageable pageable = PageRequest.of(page, size, sort);
 
-        if (permisoService.hasRole("ADMIN")) {
-            Long empresaId = permisoService.empresaIdActualOrNull();
+        Long empresaId = permisoService.empresaIdActualOrNull();
+        var allowed = companyService.getSettings(empresaId, "123");
+
+        if (allowed.getAllowView() || permisoService.hasRole("ADMIN")) {
             if (empresaId == null) throw new CustomServiceException(idTx, "E005", "Empresa no asociada");
             return trabajoRepository.findAllByEmpresa(empresaId, pageable)
                     .map(t -> mapTrabajoToListDTO(t));
@@ -192,8 +196,10 @@ public class JobServiceImpl implements IJobService {
         Pageable pageable = PageRequest.of(page, size, sort);
         String query = q.trim();
 
-        if (permisoService.hasRole("ADMIN")) {
-            Long empresaId = permisoService.empresaIdActualOrNull();
+        Long empresaId = permisoService.empresaIdActualOrNull();
+        var allowed = companyService.getSettings(empresaId, "123");
+
+        if (allowed.getAllowView() || permisoService.hasRole("ADMIN")) {
             if (empresaId == null) throw new CustomServiceException(idTx, "E005", "Empresa no asociada");
             return trabajoRepository.searchByEmpresa(empresaId, query, pageable)
                     .map(t -> mapTrabajoToListDTO(t));
@@ -215,9 +221,10 @@ public class JobServiceImpl implements IJobService {
         if (opt.isEmpty()) throw new CustomServiceException(idTx, "E404", "Trabajo no encontrado");
         Trabajo t = opt.get();
 
-        // Alcance por rol
-        if (permisoService.hasRole("ADMIN")) {
-            Long empresaId = permisoService.empresaIdActualOrNull();
+        Long empresaId = permisoService.empresaIdActualOrNull();
+        var allowed = companyService.getSettings(empresaId, "123");
+
+        if (allowed.getAllowView() || permisoService.hasRole("ADMIN")) {
             Long empresaTrabajo = (t.getCliente() != null && t.getCliente().getEmpresa() != null)
                     ? t.getCliente().getEmpresa().getId() : null;
             if (empresaId == null || empresaTrabajo == null || !empresaId.equals(empresaTrabajo)) {
@@ -252,11 +259,11 @@ public class JobServiceImpl implements IJobService {
         Trabajo trabajo = trabajoRepository.findById(payload.getId())
                 .orElseThrow(() -> new CustomServiceException(idTx, "E404", "Trabajo no encontrado"));
 
-        // ======= Validación de alcance por rol =======
-        // ADMIN: por empresa del cliente del trabajo
-        // USER: por grupo del usuario que creó el trabajo
-        if (permisoService.hasRole("ADMIN")) {
-            Long empresaId = permisoService.empresaIdActualOrNull();
+        Long empresaId = permisoService.empresaIdActualOrNull();
+        var allowed = companyService.getSettings(empresaId, "123");
+
+        if (allowed.getAllowEdit() || permisoService.hasRole("ADMIN")) {
+
             Long empresaTrabajo = (trabajo.getCliente() != null && trabajo.getCliente().getEmpresa() != null)
                     ? trabajo.getCliente().getEmpresa().getId() : null;
 
@@ -288,7 +295,6 @@ public class JobServiceImpl implements IJobService {
             Cliente cliente = clienteService.findClienteById(payload.getClienteId());
             // (Opcional) Revalidar alcance si cambia el cliente
             if (permisoService.hasRole("ADMIN")) {
-                Long empresaId = permisoService.empresaIdActualOrNull();
                 Long empresaCliente = (cliente.getEmpresa() != null) ? cliente.getEmpresa().getId() : null;
                 if (empresaId == null || !Objects.equals(empresaId, empresaCliente)) {
                     throw new CustomServiceException(idTx, "E005", "El cliente no pertenece a tu empresa");

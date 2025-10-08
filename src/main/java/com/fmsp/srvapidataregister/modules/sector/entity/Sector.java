@@ -12,4 +12,7 @@ public class Sector {
 
     @Column(nullable = false, unique = true)
     private String nombre; // Ej: "Medico", "Tecnologia", e
+
+    @Column
+    private String descripcion;
 }

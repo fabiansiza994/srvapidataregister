@@ -1,8 +1,13 @@
 package com.fmsp.srvapidataregister.modules.users.service.impl;
 
+import com.fmsp.srvapidataregister.config.LoadDataConfig;
 import com.fmsp.srvapidataregister.core.exceptions.CustomServiceException;
 import com.fmsp.srvapidataregister.core.exceptions.InternalServerException;
+import com.fmsp.srvapidataregister.core.util.GenerateVerificationCode;
 import com.fmsp.srvapidataregister.modules.auth.service.PermisoService;
+import com.fmsp.srvapidataregister.modules.codes.CodeRepository;
+import com.fmsp.srvapidataregister.modules.codes.entity.Code;
+import com.fmsp.srvapidataregister.modules.codes.entity.dto.CodeDTO;
 import com.fmsp.srvapidataregister.modules.companies.dto.EmpresaDTO;
 import com.fmsp.srvapidataregister.modules.companies.dto.EmpresaLiteDTO;
 import com.fmsp.srvapidataregister.modules.companies.entity.Empresa;
@@ -11,6 +16,10 @@ import com.fmsp.srvapidataregister.modules.groups.dto.GrupoDTO;
 import com.fmsp.srvapidataregister.modules.groups.dto.GrupoLiteDTO;
 import com.fmsp.srvapidataregister.modules.groups.entity.Grupo;
 import com.fmsp.srvapidataregister.modules.groups.repository.GrupoRepository;
+import com.fmsp.srvapidataregister.modules.methodPayment.dto.FormaPagoCreateDTO;
+import com.fmsp.srvapidataregister.modules.methodPayment.service.IMOPService;
+import com.fmsp.srvapidataregister.modules.notification.dto.EmailTemplateRequest;
+import com.fmsp.srvapidataregister.modules.notification.service.EmailService;
 import com.fmsp.srvapidataregister.modules.pais.service.IPaisService;
 import com.fmsp.srvapidataregister.modules.roles.dto.RolDTO;
 import com.fmsp.srvapidataregister.modules.roles.dto.RolLiteDTO;
@@ -31,6 +40,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -48,6 +59,13 @@ public class UsuarioService implements IUsuarioService {
     private final ISectorService sectorService;
     private final IPaisService paisService;
     private final PermisoService permisoService;
+
+    private final EmailService emailService;
+    private final IMOPService imoPService;
+    private final GenerateVerificationCode generateVerificationCode;
+    private final CodeRepository codeRepository;
+
+    private final LoadDataConfig loadDataConfig;
 
     @Override
     public Optional<UsuarioDTO> getUsuarioById(Long id) {
@@ -86,6 +104,7 @@ public class UsuarioService implements IUsuarioService {
     @Transactional
     @Override
     public UsuarioDTO registerUsuario(RegistroDTO registroDTO, String uuid) {
+
         if (getUsuarioByEmail(registroDTO.getEmail())) {
             throw new InternalServerException(uuid, "E001", "El usuario ya existe.");
         }
@@ -108,8 +127,19 @@ public class UsuarioService implements IUsuarioService {
             empresaDTO.setSector(sector);
             empresaDTO.setEstado("ACTIVO");
             empresaGuardada = empresaService.save(empresaDTO);
+
+            var  formaPagoDef = new FormaPagoCreateDTO();
+            formaPagoDef.setEstado(1);
+            formaPagoDef.setFormaPago("EFECTIVO");
+            formaPagoDef.setEmpresaId(empresaGuardada.getId());
+            imoPService.saveNewUser(formaPagoDef);
         } else {
+            long actuales = usuarioRepository.countByGrupo_Empresa_Id(empresaDB.getId());
             empresaGuardada = empresaDB;
+            if(actuales >= empresaGuardada.getUserLimit()){
+                throw new CustomServiceException(uuid, "E409",
+                        "Límite de usuarios alcanzado para la empresa (" + empresaGuardada.getUserLimit() + ").");
+            }
         }
 
         RolDTO rol;
@@ -139,7 +169,37 @@ public class UsuarioService implements IUsuarioService {
         usuarioDTO.setUsuario(usuarioDTO.getUsuario().toLowerCase().trim());
 
         var mapper = modelMapper.map(usuarioDTO, Usuario.class);
-        usuarioRepository.save(mapper);
+        mapper.setBloqueado(true);
+        var userSaved = usuarioRepository.save(mapper);
+        if(userSaved.getId() != null) {
+            try {
+
+                var codeDB = codeRepository.findByUserEmail(userSaved.getEmail()).stream()
+                        .anyMatch(c -> "ACTIVO".equalsIgnoreCase(c.getStatus()));;
+
+                if(codeDB){
+                    throw new CustomServiceException(uuid, "E005", "El usuario ya tiene un codigo activo (verificar correo)");
+                };
+
+                String code = generateVerificationCode.generarCodigoVerificacion();
+                Map<String, Object> variables = new HashMap();
+                variables.put("nombre", usuarioDTO.getNombre());
+                variables.put("mensaje", "Tu cuenta fue creada correctamente.");
+                variables.put("mensageTwo", "tu codigo de activacion es: <b>" + code + "</b>");
+                variables.put("ctaUrl", loadDataConfig.getFrontUrl()+userSaved.getId());
+
+                emailService.sendTemplate(new EmailTemplateRequest(userSaved.getEmail(), "Bienvenido a DataRegister",
+                        "hello",
+                        variables));
+                CodeDTO codeDTO = new CodeDTO();
+                codeDTO.setCode(code);
+                codeDTO.setUserEmail(userSaved.getEmail());
+                codeDTO.setStatus("ACTIVO");
+                codeRepository.save(modelMapper.map(codeDTO, Code.class));
+            }catch (Exception e){
+                throw new CustomServiceException(uuid, "E001", "Error al enviar correo");
+            }
+        }
         registroDTO.setRol(rol);
         return modelMapper.map(registroDTO, UsuarioDTO.class);
     }

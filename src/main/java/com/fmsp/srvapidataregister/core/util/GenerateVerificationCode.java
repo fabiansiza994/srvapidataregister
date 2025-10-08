@@ -1,8 +1,11 @@
 package com.fmsp.srvapidataregister.core.util;
 
+import org.springframework.stereotype.Service;
+
 import java.util.Random;
 
-public class generateVerificationCode {
+@Service
+public class GenerateVerificationCode {
 
     public String generarCodigoVerificacion() {
         Random random = new Random();

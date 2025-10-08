@@ -6,6 +6,7 @@ import com.fmsp.srvapidataregister.modules.clients.dto.*;
 import com.fmsp.srvapidataregister.modules.clients.entity.Cliente;
 import com.fmsp.srvapidataregister.modules.clients.repository.ClienteRepository;
 import com.fmsp.srvapidataregister.modules.clients.service.IClienteService;
+import com.fmsp.srvapidataregister.modules.companies.service.ICompanyService;
 import com.fmsp.srvapidataregister.modules.jobs.repository.TrabajoRepository;
 import com.fmsp.srvapidataregister.modules.paciente.dto.PacienteDTO;
 import com.fmsp.srvapidataregister.modules.paciente.service.IPacienteService;
@@ -33,14 +34,16 @@ public class ClienteService implements IClienteService {
     private final IUsuarioService usuarioService;
     private final IPacienteService pacienteService;
     private final PermisoService permisoService;
+    private final ICompanyService companyService;
 
-    public ClienteService(ClienteRepository clienteRepository, ModelMapper modelMapper, TrabajoRepository trabajoRepository, IUsuarioService usuarioService, IPacienteService pacienteService, PermisoService permisoService) {
+    public ClienteService(ClienteRepository clienteRepository, ModelMapper modelMapper, TrabajoRepository trabajoRepository, IUsuarioService usuarioService, IPacienteService pacienteService, PermisoService permisoService, ICompanyService companyService) {
         this.clienteRepository = clienteRepository;
         this.modelMapper = modelMapper;
         this.trabajoRepository = trabajoRepository;
         this.usuarioService = usuarioService;
         this.pacienteService = pacienteService;
         this.permisoService = permisoService;
+        this.companyService = companyService;
     }
 
     @Override
@@ -87,9 +90,12 @@ public class ClienteService implements IClienteService {
                 : Sort.by(sortBy).ascending();
         Pageable pageable = PageRequest.of(page, size, sort);
 
-        if (permisoService.hasRole("ADMIN")) {
-            Long empresaId = permisoService.empresaIdActualOrNull();
-            if (empresaId == null) throw new AccessDeniedException("Empresa no asociada");
+        Long empresaId = permisoService.empresaIdActualOrNull();
+        if (empresaId == null) throw new AccessDeniedException("Empresa no asociada");
+
+        var allowed = companyService.getSettings(empresaId, "123");
+
+        if (allowed.getAllowView() || permisoService.hasRole("ADMIN")) {
             Page<Cliente> pageClientes = clienteRepository.findAllByEmpresa_Id(empresaId, pageable);
             return pageClientes.map(c -> modelMapper.map(c, ClientePlanoDTO.class));
         }
@@ -146,30 +152,40 @@ public class ClienteService implements IClienteService {
 
     @Transactional
     public void deleteCliente(Long clienteId, String uuid) {
+
         var opt = clienteRepository.findById(clienteId);
         if (opt.isEmpty()) {
             throw new CustomServiceException(uuid, "E404", "Cliente no encontrado");
         }
         var cliente = opt.get();
 
+
+        Long empresaId = permisoService.empresaIdActualOrNull();
+        var allowed = companyService.getSettings(empresaId, "123");
+
         // 1) Alcance por rol
-        if (permisoService.hasRole("ADMIN")) {
-            Long empresaId = permisoService.empresaIdActualOrNull();
+        if (allowed.getAllowEdit() || permisoService.hasRole("ADMIN")) {
+
             if (empresaId == null || cliente.getEmpresa() == null || !empresaId.equals(cliente.getEmpresa().getId())) {
                 throw new AccessDeniedException("El cliente no pertenece a tu empresa");
             }
-        } else if (permisoService.hasRole("USER")) {
+        } else if (allowed.getAllowEdit() || permisoService.hasRole("USER")) {
+
+            if(!opt.get().getUsuario().getId().equals(permisoService.usuarioActual().get().getId())){
+                throw new CustomServiceException(uuid, "E404", "el cliente fue creado  por otro usuario");
+            }
+
             Long grupoId = permisoService.grupoIdActualOrNull();
             Long grupoCliente = (cliente.getUsuario() != null && cliente.getUsuario().getGrupo() != null)
                     ? cliente.getUsuario().getGrupo().getId() : null;
             if (grupoId == null || !grupoId.equals(grupoCliente)) {
                 throw new AccessDeniedException("El cliente no pertenece a tu grupo");
             }
+
         } else {
             throw new AccessDeniedException("Rol no permitido");
         }
 
-        // 2) Validaciones de asociación
         long trabajos = trabajoRepository.countByCliente_Id(clienteId);
         if (trabajos > 0) {
             throw new CustomServiceException(uuid, "E409",
@@ -182,7 +198,6 @@ public class ClienteService implements IClienteService {
                     "No se puede eliminar: el cliente tiene pacientes asociados (" + pacientes + ")");
         }
 
-        // 3) Eliminar
         clienteRepository.deleteById(clienteId);
     }
 
@@ -194,11 +209,8 @@ public class ClienteService implements IClienteService {
         }
 
         var cliente = clienteOpt.get();
-
-        // Mapeamos Cliente a DTO
         var clienteDetail = modelMapper.map(cliente, ClienteDetailDTO.class);
 
-        // Buscar pacientes asociados
         var pacientes = pacienteService.findByCliente(clienteId);
         clienteDetail.setPacientes(pacientes);
 
@@ -215,9 +227,11 @@ public class ClienteService implements IClienteService {
 
         var cliente = clienteOpt.get();
 
-        // ===== Validaciones de alcance por rol (igual filosofía que delete) =====
-        if (permisoService.hasRole("ADMIN")) {
-            Long empresaId = permisoService.empresaIdActualOrNull();
+        Long empresaId = permisoService.empresaIdActualOrNull();
+        var allowed = companyService.getSettings(empresaId, "123");
+
+        if (allowed.getAllowEdit() || permisoService.hasRole("ADMIN")) {
+
             if (empresaId == null || cliente.getEmpresa() == null || !empresaId.equals(cliente.getEmpresa().getId())) {
                 throw new AccessDeniedException("El cliente no pertenece a tu empresa");
             }
@@ -231,7 +245,7 @@ public class ClienteService implements IClienteService {
                 }
             }
 
-        } else if (permisoService.hasRole("USER")) {
+        } else if (allowed.getAllowEdit() || permisoService.hasRole("USER")) {
             Long grupoId = permisoService.grupoIdActualOrNull();
             Long grupoCliente = (cliente.getUsuario() != null && cliente.getUsuario().getGrupo() != null)
                     ? cliente.getUsuario().getGrupo().getId() : null;
