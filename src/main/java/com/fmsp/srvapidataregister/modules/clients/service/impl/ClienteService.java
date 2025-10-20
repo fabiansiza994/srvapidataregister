@@ -220,6 +220,9 @@ public class ClienteService implements IClienteService {
     @PreAuthorize("hasAnyRole('ADMIN','USER')")
     @Transactional
     public ClienteResponseDTO updateCliente(Long clienteId, ClienteUpdateDTO dto, String uuid) {
+        if(dto.getEmail().isEmpty()){
+            throw new CustomServiceException(uuid, "E404", "email requerido");
+        }
         var clienteOpt = clienteRepository.findById(clienteId);
         if (clienteOpt.isEmpty()) {
             throw new CustomServiceException(uuid, "E404", "Cliente no encontrado");

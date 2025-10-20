@@ -23,4 +23,5 @@ public class UsuarioUpdateDTO {
 
     private Boolean bloqueado;       // opcional
     private Integer intentosFallidos; // opcional
+    private String password;
 }

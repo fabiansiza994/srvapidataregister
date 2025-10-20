@@ -125,15 +125,20 @@ public class JobServiceImpl implements IJobService {
             throw new CustomServiceException(idTx, "E004", "Trabajo no encontrado");
         }
 
-        if (permisoService.hasRole("ADMIN")) {
-            Long empresaId = permisoService.empresaIdActualOrNull();
+        Long empresaId = permisoService.empresaIdActualOrNull();
+        var allowed = companyService.getSettings(empresaId, "123");
+
+        if (allowed.getAllowEdit() || permisoService.hasRole("ADMIN")) {
             if (empresaId == null) {
-                throw new CustomAccesException(idTx, "E500", "El paciente no pertenece a tu empresa");
+                throw new CustomAccesException(idTx, "E500", "El trabajo no pertenece a tu empresa");
             }
         } else if (permisoService.hasRole("USER")) {
             Long grupoId = permisoService.grupoIdActualOrNull();
             if (grupoId == null) {
-                throw new CustomAccesException(idTx, "E500", "El paciente no pertenece a tu grupo");
+                throw new CustomAccesException(idTx, "E500", "El trabajo no pertenece a tu grupo");
+            }
+            if(!permisoService.getUsuarioActual().get().getId().equals(trabajo.get().getUsuario().getId())){
+                throw new CustomAccesException(idTx, "E500", "El trabajo fue creado por otro usuario");
             }
         } else {
             throw new CustomServiceException(idTx, "E004", "Rol no permitido");

@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -18,7 +19,7 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
     Optional<Usuario> findByUsuario(String usuario);
     long countByGrupo_Empresa_Id(Long empresaId);
     boolean existsByEmail(String email);
-
+    Optional<Usuario> findByEmail(String email);
     boolean existsByUsuarioIgnoreCase(String usuario);
 
     // validaciones de duplicados por empresa (para update)

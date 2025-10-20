@@ -40,10 +40,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @AllArgsConstructor
@@ -105,8 +102,18 @@ public class UsuarioService implements IUsuarioService {
     @Override
     public UsuarioDTO registerUsuario(RegistroDTO registroDTO, String uuid) {
 
-        if (getUsuarioByEmail(registroDTO.getEmail())) {
-            throw new InternalServerException(uuid, "E001", "El usuario ya existe.");
+        var userDb = getUsuarioByEmail(registroDTO.getEmail());
+        // lista con elementos
+        if (userDb.isPresent()) {
+            var comp = permisoService.empresaIdActualOrNull();
+            if (usuarioRepository.existsByEmailAndGrupo_Empresa_IdAndIdNot(userDb.get().getEmail(), comp, userDb.get().getId())) {
+                throw new CustomServiceException(uuid, "E409", "Ya existe un usuario con ese email en tu empresa");
+            }
+        }
+
+        var username = usuarioRepository.findByUsuario(registroDTO.getUsuario());
+        if(username.isPresent()){
+            throw new CustomServiceException(uuid, "E409", "Ya existe un registro con el de usuario: "+registroDTO.getUsuario());
         }
 
         var sector = sectorService.findSectorById(registroDTO.getEmpresa().getSector().getId());
@@ -128,7 +135,7 @@ public class UsuarioService implements IUsuarioService {
             empresaDTO.setEstado("ACTIVO");
             empresaGuardada = empresaService.save(empresaDTO);
 
-            var  formaPagoDef = new FormaPagoCreateDTO();
+            var formaPagoDef = new FormaPagoCreateDTO();
             formaPagoDef.setEstado(1);
             formaPagoDef.setFormaPago("EFECTIVO");
             formaPagoDef.setEmpresaId(empresaGuardada.getId());
@@ -136,7 +143,7 @@ public class UsuarioService implements IUsuarioService {
         } else {
             long actuales = usuarioRepository.countByGrupo_Empresa_Id(empresaDB.getId());
             empresaGuardada = empresaDB;
-            if(actuales >= empresaGuardada.getUserLimit()){
+            if (actuales >= empresaGuardada.getUserLimit()) {
                 throw new CustomServiceException(uuid, "E409",
                         "Límite de usuarios alcanzado para la empresa (" + empresaGuardada.getUserLimit() + ").");
             }
@@ -170,6 +177,10 @@ public class UsuarioService implements IUsuarioService {
 
         var mapper = modelMapper.map(usuarioDTO, Usuario.class);
         mapper.setBloqueado(true);
+        if (registroDTO.getRol().getId() == 2)
+        {
+            mapper.setBloqueado(false);
+        }
         var userSaved = usuarioRepository.save(mapper);
         if(userSaved.getId() != null) {
             try {
@@ -181,21 +192,23 @@ public class UsuarioService implements IUsuarioService {
                     throw new CustomServiceException(uuid, "E005", "El usuario ya tiene un codigo activo (verificar correo)");
                 };
 
-                String code = generateVerificationCode.generarCodigoVerificacion();
-                Map<String, Object> variables = new HashMap();
-                variables.put("nombre", usuarioDTO.getNombre());
-                variables.put("mensaje", "Tu cuenta fue creada correctamente.");
-                variables.put("mensageTwo", "tu codigo de activacion es: <b>" + code + "</b>");
-                variables.put("ctaUrl", loadDataConfig.getFrontUrl()+userSaved.getId());
+                if(registroDTO.getRol().getId() != 2){
+                    String code = generateVerificationCode.generarCodigoVerificacion();
+                    Map<String, Object> variables = new HashMap();
+                    variables.put("nombre", usuarioDTO.getNombre());
+                    variables.put("mensaje", "Tu cuenta fue creada correctamente.");
+                    variables.put("mensageTwo", "tu codigo de activacion es: <b>" + code + "</b>");
+                    variables.put("ctaUrl", loadDataConfig.getFrontUrl()+userSaved.getId());
 
-                emailService.sendTemplate(new EmailTemplateRequest(userSaved.getEmail(), "Bienvenido a DataRegister",
-                        "hello",
-                        variables));
-                CodeDTO codeDTO = new CodeDTO();
-                codeDTO.setCode(code);
-                codeDTO.setUserEmail(userSaved.getEmail());
-                codeDTO.setStatus("ACTIVO");
-                codeRepository.save(modelMapper.map(codeDTO, Code.class));
+                    emailService.sendTemplate(new EmailTemplateRequest(userSaved.getEmail(), "Bienvenido a DataRegister",
+                            "hello",
+                            variables));
+                    CodeDTO codeDTO = new CodeDTO();
+                    codeDTO.setCode(code);
+                    codeDTO.setUserEmail(userSaved.getEmail());
+                    codeDTO.setStatus("ACTIVO");
+                    codeRepository.save(modelMapper.map(codeDTO, Code.class));
+                }
             }catch (Exception e){
                 throw new CustomServiceException(uuid, "E001", "Error al enviar correo");
             }
@@ -204,8 +217,12 @@ public class UsuarioService implements IUsuarioService {
         return modelMapper.map(registroDTO, UsuarioDTO.class);
     }
 
-    public boolean getUsuarioByEmail(String email) {
+    public boolean existUsuarioByEmail(String email) {
         return usuarioRepository.existsByEmail(email);
+    }
+
+    public Optional<Usuario> getUsuarioByEmail(String email) {
+        return usuarioRepository.findByEmail(email);
     }
 
     public Page<UsuarioListDTO> list(int page, int size, String sortBy, String direction) {
@@ -307,6 +324,9 @@ public class UsuarioService implements IUsuarioService {
         u.setNombre(dto.getNombre());
         u.setApellido(dto.getApellido());
         u.setEmail(dto.getEmail());
+        if(dto.getPassword() != null) {
+            u.setPassword(passwordEncoder.encode(dto.getPassword()));
+        }
 
         // opcionales (solo si vienen)
         if (dto.getBloqueado() != null) u.setBloqueado(dto.getBloqueado());
