@@ -1,0 +1,90 @@
+{
+  "info": {
+    "name": "srvapidataregister - Mercado Pago (local)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "a2d4b6f0-7f3c-4b47-9b1b-mercado-pago-local"
+  },
+  "item": [
+    {
+      "name": "Listar planes (GET /pay/plans)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Accept", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/pay/plans",
+          "host": ["{{baseUrl}}"],
+          "path": ["pay", "plans"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Suscribirse mensual (POST /pay/subscribe)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Accept", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"planId\": \"BASIC\",\n  \"period\": \"MONTHLY\",\n  \"payerEmail\": \"comprador@test.com\",\n  \"empresaId\": 1\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/pay/subscribe",
+          "host": ["{{baseUrl}}"],
+          "path": ["pay", "subscribe"]
+        },
+        "description": "Crea una suscripción mensual. Si la empresaId resuelve a CO, la moneda será COP y usará el precio mensual del plan."
+      },
+      "response": []
+    },
+    {
+      "name": "Suscribirse anual (POST /pay/subscribe)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Accept", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"planId\": \"PRO\",\n  \"period\": \"ANNUAL\",\n  \"payerEmail\": \"comprador@test.com\",\n  \"empresaId\": 1\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/pay/subscribe",
+          "host": ["{{baseUrl}}"],
+          "path": ["pay", "subscribe"]
+        },
+        "description": "Crea una suscripción anual con 20% de descuento aplicado (12 * mensual * 0.8)."
+      },
+      "response": []
+    },
+    {
+      "name": "Simular webhook (POST /pay/webhook)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"type\": \"payment\",\n  \"action\": \"payment.created\",\n  \"data\": { \"id\": \"1234567890\" },\n  \"date_created\": \"2025-01-01T00:00:00Z\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/pay/webhook",
+          "host": ["{{baseUrl}}"],
+          "path": ["pay", "webhook"]
+        },
+        "description": "Simula una notificación de Mercado Pago hacia tu webhook local."
+      },
+      "response": []
+    }
+  ],
+  "event": [],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8081" }
+  ]
+}
