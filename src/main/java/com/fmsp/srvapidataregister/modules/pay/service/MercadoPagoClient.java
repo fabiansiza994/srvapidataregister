@@ -74,6 +74,19 @@ public class MercadoPagoClient {
             throw new IllegalStateException("mp.back-url is required for preapproval redirects.");
         }
 
+        // Validación de entorno: si sandbox=true debemos usar un token TEST- y esperar live_mode=false
+        if (sandbox) {
+            log.info("Modo sandbox habilitado.");
+            if (!accessToken.startsWith("TEST-")) {
+                throw new IllegalStateException("Sandbox habilitado pero el access token no es de prueba (debe iniciar con 'TEST-').");
+            }
+        } else {
+            log.info("Modo live habilitado.");
+            if (accessToken.startsWith("TEST-")) {
+                log.warn("[MP] Sandbox deshabilitado pero se está usando un access token de TEST. Considera configurar un token de producción.");
+            }
+        }
+
         try {
             MercadoPagoConfig.setAccessToken(accessToken);
 
@@ -151,8 +164,18 @@ public class MercadoPagoClient {
                 throw new RuntimeException("Respuesta de Mercado Pago inválida al crear preapproval");
             }
 
-            log.info("[MP] preapproval creado id={} init_point={} currency={} amount={} period={} sandbox={}",
-                    providerId, initPoint, currency, amount, period, sandbox);
+            // En la API de Preapproval no siempre viene 'live_mode'. Validamos modo usando el access token.
+            boolean tokenIndicaSandbox = accessToken.startsWith("TEST-");
+            if (sandbox && !tokenIndicaSandbox) {
+                log.error("[MP] Sandbox habilitado pero el access token no es de prueba (no inicia con TEST-)");
+                throw new IllegalStateException("Sandbox habilitado pero el access token no es de prueba (no inicia con TEST-)");
+            }
+            if (!sandbox && tokenIndicaSandbox) {
+                log.warn("[MP] Sandbox deshabilitado pero el access token parece de prueba (TEST-). Revisa configuración.");
+            }
+
+            log.info("[MP] preapproval creado id={} init_point={} currency={} amount={} period={} sandbox={} tokenSandboxIndicado={}",
+                    providerId, initPoint, currency, amount, period, sandbox, tokenIndicaSandbox);
 
             return new PreapprovalInit(initPoint, providerId);
 
