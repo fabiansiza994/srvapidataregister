@@ -13,7 +13,7 @@ public record TrabajoCreateDTO(
         LocalDate fecha,
         @NotNull @PositiveOrZero
         BigDecimal valorLabor,
-        @NotNull @PositiveOrZero BigDecimal valorMateriales,
+        @PositiveOrZero BigDecimal valorMateriales,
         @NotNull @PositiveOrZero BigDecimal valorTotal,
         @NotNull @PositiveOrZero BigDecimal ganancias,
         @Size(max = 500) String descripcionLabor,
