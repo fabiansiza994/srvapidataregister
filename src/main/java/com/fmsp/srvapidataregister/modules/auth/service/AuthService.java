@@ -6,7 +6,6 @@ import com.fmsp.srvapidataregister.modules.auth.dto.AuthResponse;
 import com.fmsp.srvapidataregister.modules.auth.dto.LoginRequest;
 import com.fmsp.srvapidataregister.modules.users.dto.UsuarioDTO;
 import com.fmsp.srvapidataregister.modules.users.service.IUsuarioService;
-import org.modelmapper.ModelMapper;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.LockedException;
@@ -14,7 +13,6 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AuthService {
@@ -24,13 +22,11 @@ public class AuthService {
 
     private final IUsuarioService usuarioService;
     private static final int MAX_INTENTOS_FALLIDOS = 5;
-    private final ModelMapper modelMapper;
 
-    public AuthService(AuthenticationManager authenticationManager, JwtService jwtService, IUsuarioService usuarioService, ModelMapper modelMapper) {
+    public AuthService(AuthenticationManager authenticationManager, JwtService jwtService, IUsuarioService usuarioService) {
         this.authenticationManager = authenticationManager;
         this.jwtService = jwtService;
         this.usuarioService = usuarioService;
-        this.modelMapper = modelMapper;
     }
 
     public AuthResponse login(LoginRequest request) {

@@ -9,4 +9,6 @@ public interface ICodeService {
     CodeDTO findByCodeAndUserEmail(String code, String userEmail);
     CodeDTO verifyCode(Long userId, String code);
     CodeDTO resendCode(Long userId) throws MessagingException;
+
+    String recoverAccount(String userEmail) throws MessagingException;
 }

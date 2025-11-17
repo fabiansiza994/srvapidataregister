@@ -65,7 +65,7 @@ public class JobServiceImpl implements IJobService {
     @Override
     @Transactional
     public TrabajoDTO create(TrabajoCreateDTO dto, MultipartFile foto1, MultipartFile foto2, MultipartFile foto3,
-                             MultipartFile foto4, String idTx) {
+                             MultipartFile foto4, MultipartFile foto5, MultipartFile foto6, String idTx) {
 
         PacienteDTO paciente = new PacienteDTO();
         TrabajoDTO trabajo = new TrabajoDTO();
@@ -106,6 +106,8 @@ public class JobServiceImpl implements IJobService {
         trabajo.setFoto2(uploadIfPresent("trabajos/foto2_", foto2));
         trabajo.setFoto3(uploadIfPresent("trabajos/foto3_", foto3));
         trabajo.setFoto4(uploadIfPresent("trabajos/foto4_", foto4));
+        trabajo.setFoto5(uploadIfPresent("trabajos/foto5_", foto5));
+        trabajo.setFoto6(uploadIfPresent("trabajos/foto6_", foto6));
 
         var saved = trabajoRepository.save(modelMapper.map(trabajo, Trabajo.class));
 
@@ -260,7 +262,8 @@ public class JobServiceImpl implements IJobService {
 
     @Override
     @Transactional
-    public TrabajoDTO update(TrabajoUpdateDTO payload, MultipartFile foto1, MultipartFile foto2, MultipartFile foto3, MultipartFile foto4, String idTx) {
+    public TrabajoDTO update(TrabajoUpdateDTO payload, MultipartFile foto1, MultipartFile foto2, MultipartFile foto3,
+                             MultipartFile foto4, MultipartFile foto5, MultipartFile foto6, String idTx) {
         Trabajo trabajo = trabajoRepository.findById(payload.getId())
                 .orElseThrow(() -> new CustomServiceException(idTx, "E404", "Trabajo no encontrado"));
 
@@ -294,6 +297,7 @@ public class JobServiceImpl implements IJobService {
         if (payload.getGanancias() != null) trabajo.setGanancias(BigDecimal.valueOf(payload.getGanancias()));
         if (payload.getValorTotal() != null) trabajo.setValorTotal(BigDecimal.valueOf(payload.getValorTotal()));
         if (payload.getDescripcionLabor() != null) trabajo.setDescripcionLabor(payload.getDescripcionLabor());
+        if (payload.getFecha() != null) trabajo.setFecha(payload.getFecha());
 
         // ======= Actualizar asociaciones opcionales =======
         if (payload.getClienteId() != null) {

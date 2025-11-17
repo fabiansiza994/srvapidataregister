@@ -30,4 +30,10 @@ public class CodeController {
         var response = codeService.resendCode(userId);
         return ResponseHandler.successResponse(response, "123");
     }
+
+    @GetMapping("/recoverAccount/{email}")
+    public ResponseEntity<ApiResponse<Object>> resendCode(@PathVariable("email") String email) throws MessagingException {
+        var response = codeService.recoverAccount(email);
+        return ResponseHandler.successResponse(response, "123");
+    }
 }

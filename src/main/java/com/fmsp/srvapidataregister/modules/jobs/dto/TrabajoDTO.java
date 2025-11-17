@@ -24,6 +24,8 @@ public class TrabajoDTO {
     private String foto2;
     private String foto3;
     private String foto4;
+    private String foto5;
+    private String foto6;
     private ClientePlanoDTO cliente;
     private Long paciente;
     private FormaPagoDTO formaPago;

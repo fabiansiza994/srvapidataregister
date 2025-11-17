@@ -1,6 +1,7 @@
 package com.fmsp.srvapidataregister.modules.users.service;
 
 import com.fmsp.srvapidataregister.modules.users.dto.*;
+import com.fmsp.srvapidataregister.modules.users.entity.Usuario;
 import org.springframework.data.domain.Page;
 
 import java.util.Optional;
@@ -9,6 +10,8 @@ public interface IUsuarioService {
     Optional<UsuarioDTO> getUsuarioById(Long id);
 
     Optional<UsuarioDTO> getUsuarioByUsername(String username);
+
+    Optional<Usuario> getUsuarioByEmail(String email);
 
     UsuarioDTO saveUsuario(UsuarioDTO usuario);
 
@@ -28,4 +31,5 @@ public interface IUsuarioService {
 
     int updateBlockValue(int value, Boolean isBlocked, Long id);
 
+    String recoverAccount(RecoveryDTO recoveryDTO, String uuid);
 }

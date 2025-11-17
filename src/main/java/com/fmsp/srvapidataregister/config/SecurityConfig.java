@@ -49,7 +49,7 @@ public class SecurityConfig {
                         .requestMatchers("/auth/**", "/user/register",
                                 "country/list", "sector/list", "/health", "/api/email/send/template",
                                 "code/**", "/usage/**", "/usage/list", "/usage/ping",
-                                "/presence/ping", "/presence/online").permitAll()
+                                "/presence/ping", "/presence/online", "/code/recoverAccount/**", "/user/recoverAccount").permitAll()
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

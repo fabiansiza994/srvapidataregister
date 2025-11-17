@@ -3,6 +3,7 @@ package com.fmsp.srvapidataregister.modules.users.controller;
 import com.fmsp.srvapidataregister.core.payload.ApiResponse;
 import com.fmsp.srvapidataregister.core.payload.ErrorItemDTO;
 import com.fmsp.srvapidataregister.core.payload.ResponseHandler;
+import com.fmsp.srvapidataregister.modules.users.dto.RecoveryDTO;
 import com.fmsp.srvapidataregister.modules.users.dto.RegistroDTO;
 import com.fmsp.srvapidataregister.modules.users.dto.UsuarioUpdateDTO;
 import com.fmsp.srvapidataregister.modules.users.service.IUsuarioService;
@@ -128,6 +129,13 @@ public class UserController {
         String uuid = UUID.randomUUID().toString();
         var profile = usuarioService.profile(id, uuid);
         return ResponseHandler.successResponse(profile, uuid);
+    }
+
+    @PostMapping("/recoverAccount")
+    public ResponseEntity<ApiResponse<Object>> recoverAccount(@RequestBody RecoveryDTO recoveryDTO) {
+        String uuid = UUID.randomUUID().toString();
+        var response = usuarioService.recoverAccount(recoveryDTO, uuid);
+        return ResponseHandler.successResponse(response, uuid);
     }
 
 }

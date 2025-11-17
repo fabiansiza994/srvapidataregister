@@ -22,6 +22,7 @@ public class Usuario implements Serializable {
     private String usuario;
     private String password;
     private String email;
+    private Boolean recoveryStatus;
 
     @ManyToOne
     @JoinColumn(name = "grupo_id", referencedColumnName = "id")

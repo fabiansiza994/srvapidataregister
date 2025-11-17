@@ -172,7 +172,7 @@ public class UsuarioService implements IUsuarioService {
         usuarioDTO.setRol(rol);
         usuarioDTO.setGrupo(modelMapper.map(grupoGuardado, GrupoDTO.class));
         usuarioDTO.setPassword(passwordEncoder.encode(usuarioDTO.getPassword()));
-
+        usuarioDTO.setRecoveryStatus(false);
         usuarioDTO.setUsuario(usuarioDTO.getUsuario().toLowerCase().trim());
 
         var mapper = modelMapper.map(usuarioDTO, Usuario.class);
@@ -408,6 +408,24 @@ public class UsuarioService implements IUsuarioService {
     @Override
     public int updateBlockValue(int value, Boolean isBlocked, Long id) {
         return usuarioRepository.updateBlockValue(value, isBlocked, id);
+    }
+
+    @Override
+    public String recoverAccount(RecoveryDTO recoveryDTO, String uuid) {
+        var userOpt = usuarioRepository.findById(recoveryDTO.getUserId());
+
+        if(!userOpt.get().getRecoveryStatus()){
+            throw new CustomServiceException(uuid, "E400", "El usuario no ha solicitado recuperación de cuenta.");
+        }
+
+        if (userOpt.isPresent()) {
+            var user = userOpt.get();
+            user.setRecoveryStatus(false);
+            user.setPassword(passwordEncoder.encode(recoveryDTO.getPassword()));
+            usuarioRepository.save(user);
+            return "Realizado!";
+        }
+        return "Si el usuario existe, se ha restablecido la contraseña.";
     }
 
     private UserProfileDTO toProfileDTO(Usuario u) {

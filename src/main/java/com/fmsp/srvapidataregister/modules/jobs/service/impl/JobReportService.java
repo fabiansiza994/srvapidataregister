@@ -42,7 +42,7 @@ public class JobReportService {
             int r = 0;
             Row H = sh.createRow(r++);
             String[] cols = {
-                    "Fecha", "Cliente/Paciente", "Tipo", "Descripción",
+                    "Fecha", "Cliente", "Paciente", "Tipo", "Descripción",
                     "Mano de obra", "Materiales", "Total", "Estado", "Forma de pago"
             };
             for (int i = 0; i < cols.length; i++) {
@@ -56,21 +56,25 @@ public class JobReportService {
             for (Trabajo t : items) {
                 Row row = sh.createRow(r++);
 
-                // Cliente o Paciente
-                String nombre = "-";
+                // Cliente y Paciente en columnas separadas
+                String clienteNombre = "-";
+                String pacienteNombre = "-";
                 String tipo = "-";
+
                 if (t.getPacienteObj() != null) {
                     String na = safe(t.getPacienteObj().getNombre());
                     String aa = safe(t.getPacienteObj().getApellido());
-                    nombre = (na + " " + aa).trim();
-                    if (nombre.isEmpty()) nombre = "-";
+                    pacienteNombre = (na + " " + aa).trim();
+                    if (pacienteNombre.isEmpty()) pacienteNombre = "-";
                     tipo = "PACIENTE";
-                } else if (t.getCliente() != null) {
+                }
+                if (t.getCliente() != null) {
                     String nc = safe(t.getCliente().getNombre());
                     String ac = safe(t.getCliente().getApellido());
-                    nombre = (nc + " " + ac).trim();
-                    if (nombre.isEmpty()) nombre = "-";
-                    tipo = "CLIENTE";
+                    clienteNombre = (nc + " " + ac).trim();
+                    if (clienteNombre.isEmpty()) clienteNombre = "-";
+                    // Si ya hay paciente, mantenemos "PACIENTE" como tipo (paridad con comportamiento anterior)
+                    if (tipo.equals("-")) tipo = "CLIENTE";
                 }
 
                 BigDecimal mano = safeBD(t.getValorLabor());
@@ -80,7 +84,8 @@ public class JobReportService {
 
                 int c = 0;
                 row.createCell(c++).setCellValue(String.valueOf(t.getFecha()));
-                row.createCell(c++).setCellValue(nombre);
+                row.createCell(c++).setCellValue(clienteNombre);
+                row.createCell(c++).setCellValue(pacienteNombre);
                 row.createCell(c++).setCellValue(tipo);
                 row.createCell(c++).setCellValue(safe(t.getDescripcionLabor()));
 
@@ -105,9 +110,10 @@ public class JobReportService {
             Cell lbl = totalR.createCell(0);
             lbl.setCellValue("TOTAL GENERAL");
             lbl.setCellStyle(head);
-            sh.addMergedRegion(new org.apache.poi.ss.util.CellRangeAddress(totalR.getRowNum(), totalR.getRowNum(), 0, 5));
+            // ajustar el merge para incluir hasta la columna previa al total
+            sh.addMergedRegion(new org.apache.poi.ss.util.CellRangeAddress(totalR.getRowNum(), totalR.getRowNum(), 0, 6));
 
-            Cell totalCell = totalR.createCell(6);
+            Cell totalCell = totalR.createCell(7);
             totalCell.setCellValue(sumTotal.doubleValue());
             totalCell.setCellStyle(money);
 

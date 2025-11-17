@@ -8,6 +8,7 @@ public interface IJobService {
     TrabajoDTO create(TrabajoCreateDTO dto,
                       MultipartFile foto1, MultipartFile foto2,
                       MultipartFile foto3, MultipartFile foto4,
+                      MultipartFile foto5, MultipartFile foto6,
                       String idTx);
 
     long countByCliente_Id(Long clienteId);
@@ -20,5 +21,5 @@ public interface IJobService {
 
     TrabajoDTO update(TrabajoUpdateDTO payload,
                       MultipartFile foto1, MultipartFile foto2, MultipartFile foto3, MultipartFile foto4,
-                      String idTx);
+                      MultipartFile foto5, MultipartFile foto6, String idTx);
 }

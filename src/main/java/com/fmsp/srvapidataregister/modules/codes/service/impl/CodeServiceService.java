@@ -9,6 +9,7 @@ import com.fmsp.srvapidataregister.modules.codes.entity.dto.CodeDTO;
 import com.fmsp.srvapidataregister.modules.codes.service.ICodeService;
 import com.fmsp.srvapidataregister.modules.notification.dto.EmailTemplateRequest;
 import com.fmsp.srvapidataregister.modules.notification.service.EmailService;
+import com.fmsp.srvapidataregister.modules.users.dto.UsuarioDTO;
 import com.fmsp.srvapidataregister.modules.users.service.IUsuarioService;
 import jakarta.mail.MessagingException;
 import org.modelmapper.ModelMapper;
@@ -127,4 +128,32 @@ public class CodeServiceService implements ICodeService {
 
         return modelMapper.map(codeResult, CodeDTO.class);
     }
+
+    @Override
+    public String recoverAccount(String userEmail) throws MessagingException {
+        var user = usuarioService.getUsuarioByEmail(userEmail);
+        if (user.isEmpty()) {
+            return "Si el correo existe, se ha enviado un correo de recuperación";
+        }
+
+        user.get().setRecoveryStatus(true);
+        try{
+            usuarioService.saveUsuario(modelMapper.map(user.get(), UsuarioDTO.class));
+         }catch (Exception e) {
+            throw new CustomServiceException("123", "E500", "Error al actualizar el estado de recuperación");
+        }
+
+        Map<String, Object> variables = new HashMap();
+        variables.put("nombre", user.get().getUsuario());
+        variables.put("mensaje", "Recuperación de Cuenta.");
+        variables.put("mensageTwo", "Utiliza el siguiente enlace para recuperar la cuenta");
+        variables.put("ctaUrl", loadDataConfig.getRecoveryUrl() + user.get().getId());
+
+        emailService.sendTemplate(new EmailTemplateRequest(user.get().getEmail(), "Bienvenido a DataRegister",
+                "recover",
+                variables));
+
+        return "Correo de recuperación enviado";
+    }
+
 }

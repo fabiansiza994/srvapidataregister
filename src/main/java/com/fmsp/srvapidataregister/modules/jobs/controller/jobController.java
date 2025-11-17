@@ -42,7 +42,9 @@ public class jobController {
             @RequestPart(value = "foto1", required = false) MultipartFile foto1,
             @RequestPart(value = "foto2", required = false) MultipartFile foto2,
             @RequestPart(value = "foto3", required = false) MultipartFile foto3,
-            @RequestPart(value = "foto4", required = false) MultipartFile foto4
+            @RequestPart(value = "foto4", required = false) MultipartFile foto4,
+            @RequestPart(value = "foto5", required = false) MultipartFile foto5,
+            @RequestPart(value = "foto6", required = false) MultipartFile foto6
     ) {
 
         String idTx = UUID.randomUUID().toString();
@@ -53,7 +55,7 @@ public class jobController {
                     .collect(Collectors.toList());
             return ResponseHandler.badRequestResponse(errores, idTx);
         }
-        TrabajoDTO created = jobService.create(payload, foto1, foto2, foto3, foto4, idTx);
+        TrabajoDTO created = jobService.create(payload, foto1, foto2, foto3, foto4, foto5, foto6, idTx);
         return ResponseHandler.successResponse(created, idTx);
     }
 
@@ -109,7 +111,9 @@ public class jobController {
             @RequestPart(value = "foto1", required = false) MultipartFile foto1,
             @RequestPart(value = "foto2", required = false) MultipartFile foto2,
             @RequestPart(value = "foto3", required = false) MultipartFile foto3,
-            @RequestPart(value = "foto4", required = false) MultipartFile foto4
+            @RequestPart(value = "foto4", required = false) MultipartFile foto4,
+            @RequestPart(value = "foto5", required = false) MultipartFile foto5,
+            @RequestPart(value = "foto6", required = false) MultipartFile foto6
     ) {
         String idTx = UUID.randomUUID().toString();
 
@@ -126,7 +130,7 @@ public class jobController {
         }
 
         TrabajoDTO updated = jobService.update(
-                payload, foto1, foto2, foto3, foto4, idTx
+                payload, foto1, foto2, foto3, foto4, foto5, foto6, idTx
         );
         return ResponseHandler.successResponse(updated, idTx);
     }

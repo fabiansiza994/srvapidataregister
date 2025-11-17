@@ -1,5 +1,5 @@
 # JDK 17 slim (Debian-based)
-FROM openjdk:17-jdk-slim
+FROM eclipse-temurin:17-jdk-jammy
 
 # Evita prompts en apt
 ENV DEBIAN_FRONTEND=noninteractive

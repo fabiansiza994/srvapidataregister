@@ -6,6 +6,8 @@ import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.time.LocalDate;
+
 @Setter @Getter
 public class TrabajoUpdateDTO {
     @NotNull
@@ -15,7 +17,7 @@ public class TrabajoUpdateDTO {
     @PositiveOrZero private Double valorMateriales;
     @PositiveOrZero private Double ganancias;
     @PositiveOrZero private Double valorTotal;
-
+    private LocalDate fecha;
     @Size(max = 2000)
     private String descripcionLabor;
 

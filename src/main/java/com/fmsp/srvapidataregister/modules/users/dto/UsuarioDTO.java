@@ -15,6 +15,7 @@ public class UsuarioDTO {
     private String email;
     private GrupoDTO grupo;
     private RolDTO rol;
+    private Boolean recoveryStatus;
     private int intentosFallidos;
     private boolean bloqueado = false;
 }

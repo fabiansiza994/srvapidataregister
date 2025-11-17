@@ -41,6 +41,12 @@ public class Trabajo {
     @Column(length = 1000)
     private String foto4;
 
+    @Column(length = 1000)
+    private String foto5;
+
+    @Column(length = 1000)
+    private String foto6;
+
     @ManyToOne
     @JoinColumn(name = "CLIENTE_ID", nullable = false)
     private Cliente cliente;
