@@ -13,6 +13,9 @@ public class ClienteDetailDTO {
     private String direccion;
     private String telefono;
     private String estado;
+    private String razonSocial;
+    private String camaraComercio;
+    private String rut;
 
     private List<PacienteDTO> pacientes;
 
@@ -78,6 +81,30 @@ public class ClienteDetailDTO {
 
     public void setEstado(String estado) {
         this.estado = estado;
+    }
+
+    public String getRazonSocial() {
+        return razonSocial;
+    }
+
+    public void setRazonSocial(String razonSocial) {
+        this.razonSocial = razonSocial;
+    }
+
+    public String getCamaraComercio() {
+        return camaraComercio;
+    }
+
+    public void setCamaraComercio(String camaraComercio) {
+        this.camaraComercio = camaraComercio;
+    }
+
+    public String getRut() {
+        return rut;
+    }
+
+    public void setRut(String rut) {
+        this.rut = rut;
     }
 
     public List<PacienteDTO> getPacientes() {

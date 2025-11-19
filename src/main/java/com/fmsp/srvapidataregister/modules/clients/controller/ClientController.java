@@ -8,9 +8,11 @@ import com.fmsp.srvapidataregister.modules.clients.dto.ClienteUpdateDTO;
 import com.fmsp.srvapidataregister.modules.clients.service.IClienteService;
 import com.fmsp.srvapidataregister.modules.clients.service.impl.ClienteService;
 import jakarta.validation.Valid;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.UUID;
@@ -26,8 +28,13 @@ public class ClientController {
         this.clienteService = clienteService;
     }
 
-    @PostMapping("/create")
-    public ResponseEntity<ApiResponse<Object>> create(@RequestBody @Valid ClienteDTO clienteDTO, BindingResult result) {
+    @PostMapping(value = "/create", consumes = { MediaType.MULTIPART_FORM_DATA_VALUE })
+    public ResponseEntity<ApiResponse<Object>> create(
+            @RequestPart("cliente") @Valid ClienteDTO clienteDTO,
+            @RequestPart(value = "camaraComercio", required = false) MultipartFile camaraComercio,
+            @RequestPart(value = "rut", required = false) MultipartFile rut,
+            BindingResult result
+    ) {
         String uuid = UUID.randomUUID().toString();
         if (result.hasErrors()) {
             List<ErrorItemDTO> errores = result.getFieldErrors().stream()
@@ -39,6 +46,19 @@ public class ClientController {
 
             return ResponseHandler.badRequestResponse(errores, uuid);
         }
+
+        // Subida opcional de documentos a S3 usando prefijo "documentos/"
+        if (camaraComercio != null && !camaraComercio.isEmpty()) {
+            String urlCamara = ((ClienteService) clienteService)
+                    .uploadDocIfPresent("documentos/camaraComercio_", camaraComercio);
+            clienteDTO.setCamaraComercio(urlCamara);
+        }
+        if (rut != null && !rut.isEmpty()) {
+            String urlRut = ((ClienteService) clienteService)
+                    .uploadDocIfPresent("documentos/rut_", rut);
+            clienteDTO.setRut(urlRut);
+        }
+
         var client = clienteService.createClient(clienteDTO, uuid);
         return ResponseHandler.successResponse(client, uuid);
     }
@@ -111,10 +131,12 @@ public class ClientController {
         return ResponseHandler.successResponse(detail, uuid);
     }
 
-    @PutMapping("/update/{id}")
+    @PutMapping(value = "/update/{id}", consumes = { MediaType.MULTIPART_FORM_DATA_VALUE })
     public ResponseEntity<ApiResponse<Object>> update(
             @PathVariable("id") Long id,
-            @RequestBody @Valid ClienteUpdateDTO dto,
+            @RequestPart("cliente") @Valid ClienteUpdateDTO dto,
+            @RequestPart(value = "camaraComercio", required = false) MultipartFile camaraComercio,
+            @RequestPart(value = "rut", required = false) MultipartFile rut,
             BindingResult result
     ) {
         String uuid = UUID.randomUUID().toString();
@@ -129,6 +151,20 @@ public class ClientController {
 
             return ResponseHandler.badRequestResponse(errores, uuid);
         }
+
+        // Si envían nuevos archivos, los subimos y pisamos URLs
+        if (camaraComercio != null && !camaraComercio.isEmpty()) {
+            String urlCamara = ((ClienteService) clienteService)
+                    .uploadDocIfPresent("documentos/camaraComercio_", camaraComercio);
+            dto.setCamaraComercio(urlCamara);
+        }
+        if (rut != null && !rut.isEmpty()) {
+            String urlRut = ((ClienteService) clienteService)
+                    .uploadDocIfPresent("documentos/rut_", rut);
+            dto.setRut(urlRut);
+        }
+        // Si el JSON viene con camaraComercio/rut = null o "", en el service ya se pisan esos campos,
+        // lo que efectivamente borra la referencia al documento anterior.
 
         var updated = ((ClienteService) clienteService).updateCliente(id, dto, uuid);
         return ResponseHandler.successResponse(updated, uuid);

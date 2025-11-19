@@ -23,6 +23,9 @@ public class ClienteDTO {
     @NotBlank(message = "la direccion es requerida")
     private String direccion;
     private String telefono;
+    private String razonSocial;
+    private String camaraComercio;
+    private String rut;
     private EmpresaDTO empresa;
     private UsuarioDTO usuario;
     private String estado = "ACTIVO";

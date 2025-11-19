@@ -20,6 +20,9 @@ public class Cliente {
     private String email;
     private String direccion;
     private String telefono;
+    private String razonSocial;
+    private String camaraComercio;
+    private String rut;
 
     @ManyToOne
     @JoinColumn(name = "empresa_id", nullable = true) // Relación con Empresa

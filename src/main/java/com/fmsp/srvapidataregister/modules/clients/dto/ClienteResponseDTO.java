@@ -20,7 +20,9 @@ public class ClienteResponseDTO {
     private String email;
     @NotBlank(message = "la direccion es requerida")
     private String direccion;
-    private String telefono;
+    private String telefono;private String razonSocial;
+    private String camaraComercio;
+    private String rut;
     private String estado = "ACTIVO";
     private List<PacienteDTO> pacientes;
 }

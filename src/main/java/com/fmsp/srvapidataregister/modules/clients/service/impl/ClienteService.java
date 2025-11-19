@@ -20,6 +20,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
 import java.util.Optional;
@@ -35,8 +36,9 @@ public class ClienteService implements IClienteService {
     private final IPacienteService pacienteService;
     private final PermisoService permisoService;
     private final ICompanyService companyService;
+    private final com.fmsp.srvapidataregister.modules.S3.service.S3Service s3Service;
 
-    public ClienteService(ClienteRepository clienteRepository, ModelMapper modelMapper, TrabajoRepository trabajoRepository, IUsuarioService usuarioService, IPacienteService pacienteService, PermisoService permisoService, ICompanyService companyService) {
+    public ClienteService(ClienteRepository clienteRepository, ModelMapper modelMapper, TrabajoRepository trabajoRepository, IUsuarioService usuarioService, IPacienteService pacienteService, PermisoService permisoService, ICompanyService companyService, com.fmsp.srvapidataregister.modules.S3.service.S3Service s3Service) {
         this.clienteRepository = clienteRepository;
         this.modelMapper = modelMapper;
         this.trabajoRepository = trabajoRepository;
@@ -44,6 +46,7 @@ public class ClienteService implements IClienteService {
         this.pacienteService = pacienteService;
         this.permisoService = permisoService;
         this.companyService = companyService;
+        this.s3Service = s3Service;
     }
 
     @Override
@@ -280,8 +283,45 @@ public class ClienteService implements IClienteService {
         cliente.setEmail(dto.getEmail());
         cliente.setDireccion(dto.getDireccion());
         cliente.setTelefono(dto.getTelefono());
+
+        // ===== Manejo de razonSocial (siempre se actualiza) =====
+        cliente.setRazonSocial(dto.getRazonSocial());
+
+        // ===== Manejo inteligente de documentos =====
+        // camaraComercio
+        if (dto.getCamaraComercio() == null || dto.getCamaraComercio().isBlank()) {
+            // null o "" => eliminar referencia al doc
+            cliente.setCamaraComercio(null);
+        } else if (!dto.getCamaraComercio().equals(cliente.getCamaraComercio())) {
+            // viene un valor distinto (nueva URL) => la guardamos
+            cliente.setCamaraComercio(dto.getCamaraComercio());
+        }
+        // Si es exactamente igual, no se toca.
+
+        // rut
+        if (dto.getRut() == null || dto.getRut().isBlank()) {
+            cliente.setRut(null);
+        } else if (!dto.getRut().equals(cliente.getRut())) {
+            cliente.setRut(dto.getRut());
+        }
+
         cliente.setEstado(dto.getEstado());
         var actualizado = clienteRepository.save(cliente);
         return modelMapper.map(actualizado, ClienteResponseDTO.class);
+    }
+
+    public String uploadDocIfPresent(String keyPrefix, MultipartFile file) {
+        try {
+            if (file == null || file.isEmpty()) return null;
+            byte[] bytes = file.getBytes();
+            String contentType = file.getContentType() != null ? file.getContentType() : "application/octet-stream";
+            return s3Service.uploadFile(keyPrefix, bytes, contentType);
+        } catch (Exception e) {
+            try {
+                return s3Service.uploadFile(keyPrefix, file.getBytes(), "application/octet-stream");
+            } catch (Exception ex) {
+                throw new RuntimeException("Error subiendo documento", ex);
+            }
+        }
     }
 }
