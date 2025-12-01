@@ -201,6 +201,14 @@ public class ClienteService implements IClienteService {
                     "No se puede eliminar: el cliente tiene pacientes asociados (" + pacientes + ")");
         }
 
+        // Antes de borrar el registro, eliminar documentos en S3 si existen
+        if (cliente.getCamaraComercio() != null && !cliente.getCamaraComercio().isBlank()) {
+            s3Service.deleteFile(cliente.getCamaraComercio());
+        }
+        if (cliente.getRut() != null && !cliente.getRut().isBlank()) {
+            s3Service.deleteFile(cliente.getRut());
+        }
+
         clienteRepository.deleteById(clienteId);
     }
 
